@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+
+# Django Migrations
+**/migrations/
+!**/migrations/__init__.py
+
+# Virtual environment
+venv/
+
+# VSCode / IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Pytest / Coverage
+htmlcov/
+.coverage
+.cache
+.pytest_cache/
+
+# Environment variables
+.env
