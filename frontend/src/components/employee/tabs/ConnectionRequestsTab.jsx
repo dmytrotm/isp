@@ -150,7 +150,7 @@ const ConnectionRequestsTab = () => {
         const token = localStorage.getItem("token");
 
         // Call reject endpoint
-        await api.post(
+        await api.patch(
           `/admin-dashboard/${requestId}/decline/`,
           {},
           {
@@ -474,7 +474,7 @@ const ConnectionRequestsTab = () => {
                 </Typography>
                 <Typography variant="subtitle1" gutterBottom>
                   <strong>Monthly Rate:</strong> $
-                  {detailData.tariff_details?.monthly_rate || "0"}
+                  {detailData.tariff_details?.price || "0"}
                 </Typography>
               </Grid>
               {detailData.notes && (

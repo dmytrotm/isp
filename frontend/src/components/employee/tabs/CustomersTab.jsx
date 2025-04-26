@@ -92,12 +92,26 @@ const CustomersTab = ({ search: globalSearch }) => {
   const [importError, setImportError] = useState("");
 
   const [availableStatuses, setAvailableStatuses] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("");
 
   const { enqueueSnackbar } = useSnackbar();
 
+  const handleStatusFilterChange = (event) => {
+    setStatusFilter(event.target.value);
+    setPage(0); // Reset to first page when filter changes
+  };
+
+  const handleClearFilters = () => {
+    setStatusFilter("");
+    setLocalSearch("");
+    setSearchValue("");
+    setPage(0);
+    fetchCustomers();
+  };
+
   useEffect(() => {
     fetchCustomers();
-  }, [page, rowsPerPage, globalSearch, searchValue]);
+  }, [page, rowsPerPage, globalSearch, searchValue, statusFilter]);
 
   useEffect(() => {
     // Fetch available statuses for customers
@@ -126,6 +140,13 @@ const CustomersTab = ({ search: globalSearch }) => {
       if (searchTerm) {
         params.search = searchTerm;
       }
+
+      // Add status filter parameter if selected
+      if (statusFilter) {
+        params.status = statusFilter;
+      }
+
+      console.log(statusFilter);
 
       const response = await api.get("/admin-dashboard/customers/", {
         headers: {
@@ -520,6 +541,33 @@ const CustomersTab = ({ search: globalSearch }) => {
     fetchCustomers();
   };
 
+  const StatusFilterComponent = () => (
+    <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
+      <FormControl variant="outlined" size="small" sx={{ minWidth: 200 }}>
+        <InputLabel>Filter by Status</InputLabel>
+        <Select
+          value={statusFilter}
+          onChange={handleStatusFilterChange}
+          label="Filter by Status"
+        >
+          <MenuItem value="">
+            <em>All Statuses</em>
+          </MenuItem>
+          {availableStatuses.map((status) => (
+            <MenuItem key={status.id} value={status.id}>
+              {status.status}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      {(statusFilter || searchValue) && (
+        <Button variant="outlined" onClick={handleClearFilters}>
+          Clear All Filters
+        </Button>
+      )}
+    </Box>
+  );
+
   return (
     <Box>
       <Box
@@ -582,6 +630,7 @@ const CustomersTab = ({ search: globalSearch }) => {
             }
           }}
         />
+        <StatusFilterComponent />
         <Button
           variant="contained"
           color="primary"

@@ -121,12 +121,11 @@ class Command(BaseCommand):
         phone_number = customer.phone_number
         message_text = f"Payment of {invoice.amount}$ is due tomorrow for your internet service. Please ensure your account has sufficient funds."
 
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        print(message_text)
+        # client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
         
-        message = client.messages.create(
-            body=message_text,
-            from_=settings.TWILIO_PHONE_NUMBER,
-            to=phone_number
-        )
-        
-        return message.sid
+        # message = client.messages.create(
+        #     body=message_text,
+        #     from_=settings.TWILIO_PHONE_NUMBER,
+        #     to=phone_number
+        # )

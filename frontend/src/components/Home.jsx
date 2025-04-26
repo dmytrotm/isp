@@ -132,7 +132,11 @@ export default function Homelanding() {
           const response = await api.get(
             `/tariffs/by_service?service_id=${selectedService}`
           );
-          setTariffs(response.data);
+          // Filter only active tariffs
+          const activeTariffs = response.data.filter(
+            (tariff) => tariff.is_active
+          );
+          setTariffs(activeTariffs);
         } catch (err) {
           console.error("Failed to load tariffs:", err);
         }
@@ -147,6 +151,8 @@ export default function Homelanding() {
   };
 
   const currentService = services.find((s) => s.id === selectedService);
+
+  const isAuthenticated = !!localStorage.getItem("token");
 
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh" }}>
@@ -167,14 +173,14 @@ export default function Homelanding() {
           <Button
             variant="outlined"
             color="inherit"
-            onClick={() => navigate("/login")}
+            onClick={() => navigate(isAuthenticated ? "/dashboard" : "/login")}
             sx={{
               borderRadius: 2,
               textTransform: "none",
               fontWeight: 600,
             }}
           >
-            Login
+            {isAuthenticated ? "Dashboard" : "Login"}
           </Button>
         </Toolbar>
       </AppBar>
@@ -232,102 +238,110 @@ export default function Homelanding() {
         )}
 
         <Grid container spacing={3}>
-          {tariffs.map((tariff, index) => (
-            <Grid item xs={12} sm={6} md={4} key={tariff.id}>
-              <Fade in timeout={500 + index * 200}>
-                <StyledCard elevation={3}>
-                  <TariffHeader>
-                    <Typography variant="h5" sx={{ fontWeight: "bold" }}>
-                      {tariff.name}
-                    </Typography>
-                  </TariffHeader>
-                  <TariffContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mb: 2,
-                      }}
-                    >
-                      <LocalOfferIcon color="primary" />
-                      <Typography
-                        variant="h6"
-                        color="primary.main"
-                        sx={{ fontWeight: "bold" }}
-                      >
-                        ${tariff.price}/mo
+          {tariffs.length > 0 ? (
+            tariffs.map((tariff, index) => (
+              <Grid item xs={12} sm={6} md={4} key={tariff.id}>
+                <Fade in timeout={500 + index * 200}>
+                  <StyledCard elevation={3}>
+                    <TariffHeader>
+                      <Typography variant="h5" sx={{ fontWeight: "bold" }}>
+                        {tariff.name}
                       </Typography>
-                    </Box>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    {tariff.speed && (
+                    </TariffHeader>
+                    <TariffContent>
                       <Box
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           gap: 1,
-                          mb: 1.5,
+                          mb: 2,
                         }}
                       >
-                        <SpeedIcon fontSize="small" />
-                        <Typography variant="body1">
-                          Speed: <b>{tariff.speed} Mbps</b>
+                        <LocalOfferIcon color="primary" />
+                        <Typography
+                          variant="h6"
+                          color="primary.main"
+                          sx={{ fontWeight: "bold" }}
+                        >
+                          ${tariff.price}/mo
                         </Typography>
                       </Box>
-                    )}
 
-                    {tariff.channels && (
-                      <Box
+                      <Divider sx={{ my: 2 }} />
+
+                      {tariff.speed && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mb: 1.5,
+                          }}
+                        >
+                          <SpeedIcon fontSize="small" />
+                          <Typography variant="body1">
+                            Speed: <b>{tariff.speed} Mbps</b>
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {tariff.channels && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mb: 1.5,
+                          }}
+                        >
+                          <TvIcon fontSize="small" />
+                          <Typography variant="body1">
+                            <b>{tariff.channels}</b> channels
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {tariff.description && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 1,
+                            mt: 2,
+                          }}
+                        >
+                          <InfoIcon fontSize="small" sx={{ mt: 0.5 }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {tariff.description}
+                          </Typography>
+                        </Box>
+                      )}
+                    </TariffContent>
+
+                    <TariffActions>
+                      <Button
+                        variant="contained"
+                        endIcon={<ArrowForwardIcon />}
                         sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          mb: 1.5,
+                          borderRadius: 2,
+                          textTransform: "none",
+                          px: 3,
                         }}
                       >
-                        <TvIcon fontSize="small" />
-                        <Typography variant="body1">
-                          <b>{tariff.channels}</b> channels
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {tariff.description && (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 1,
-                          mt: 2,
-                        }}
-                      >
-                        <InfoIcon fontSize="small" sx={{ mt: 0.5 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          {tariff.description}
-                        </Typography>
-                      </Box>
-                    )}
-                  </TariffContent>
-
-                  <TariffActions>
-                    <Button
-                      variant="contained"
-                      endIcon={<ArrowForwardIcon />}
-                      sx={{
-                        borderRadius: 2,
-                        textTransform: "none",
-                        px: 3,
-                      }}
-                    >
-                      Select Plan
-                    </Button>
-                  </TariffActions>
-                </StyledCard>
-              </Fade>
-            </Grid>
-          ))}
+                        Select Plan
+                      </Button>
+                    </TariffActions>
+                  </StyledCard>
+                </Fade>
+              </Grid>
+            ))
+          ) : (
+            <Box sx={{ width: "100%", textAlign: "center", py: 4 }}>
+              <Typography variant="h6" color="text.secondary">
+                No active plans available for this service.
+              </Typography>
+            </Box>
+          )}
         </Grid>
       </Container>
     </Box>

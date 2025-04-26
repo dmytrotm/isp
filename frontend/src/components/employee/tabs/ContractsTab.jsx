@@ -410,7 +410,7 @@ const ContractsTab = () => {
                 </Typography>
                 <Typography variant="body1">
                   <strong>Phone:</strong>{" "}
-                  {detailData.customer_details?.phone || "N/A"}
+                  {detailData.customer_details?.phone_number || "N/A"}
                 </Typography>
               </Box>
 

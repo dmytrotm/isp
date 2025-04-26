@@ -164,7 +164,7 @@ class ConnectionRequestSerializer(serializers.ModelSerializer):
         fields = ('id', 'customer', 'customer_details', 'status', 'status_name', 
                   'created_at', 'updated_at', 'address', 'address_details', 
                   'tariff', 'tariff_details', 'notes', 'assignments')
-        read_only_fields = ('created_at', 'updated_at', 'customer', 'status')
+        read_only_fields = ('created_at', 'updated_at', 'customer')
 
 class EquipmentCategorySerializer(serializers.ModelSerializer):
     class Meta:

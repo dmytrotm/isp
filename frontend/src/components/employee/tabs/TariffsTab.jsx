@@ -51,6 +51,11 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import {
+  CloudUpload as UploadIcon,
+  CloudDownload as DownloadIcon,
+} from "@mui/icons-material";
+
 
 const TariffsTab = () => {
   const [tariffs, setTariffs] = useState([]);
@@ -58,6 +63,12 @@ const TariffsTab = () => {
   const [tariffStats, setTariffStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState(null);
+  const [importSuccess, setImportSuccess] = useState(null);
+  const [csvFile, setCsvFile] = useState(null);
+  const fileInputRef = React.useRef();
 
   // Dialog states
   const [openTariffDialog, setOpenTariffDialog] = useState(false);
@@ -83,6 +94,93 @@ const TariffsTab = () => {
     fetchServices();
     fetchTariffStatistics();
   }, []);
+
+  const handleExportTariffs = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+
+      const response = await api.get("/admin-dashboard/export_tariffs_csv/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        responseType: "blob",
+      });
+
+      // Create a download link and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "tariffs.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      enqueueSnackbar("Tariffs exported successfully", { variant: "success" });
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      enqueueSnackbar("Failed to export tariffs", { variant: "error" });
+    }
+  };
+
+  const handleFileChange = (event) => {
+    setCsvFile(event.target.files[0]);
+  };
+
+  const handleImportTariffs = async () => {
+    if (!csvFile) {
+      enqueueSnackbar("Please select a CSV file to import", {
+        variant: "warning",
+      });
+      return;
+    }
+
+    try {
+      setImporting(true);
+      setImportError(null);
+      setImportSuccess(null);
+
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("csv_file", csvFile);
+
+      const response = await api.post(
+        "/admin-dashboard/import_tariffs_csv/",
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      setImportSuccess(`Successfully imported ${response.data.count} tariffs`);
+      if (response.data.errors && response.data.errors.length > 0) {
+        setImportError(
+          `There were ${response.data.errors.length} errors during import.`
+        );
+      }
+
+      // Reset file input
+      setCsvFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      // Refresh tariff data
+      fetchTariffs();
+      fetchTariffStatistics();
+
+      enqueueSnackbar("Tariffs imported successfully", { variant: "success" });
+      setImporting(false);
+    } catch (err) {
+      setImporting(false);
+      setImportError(err.response?.data?.message || err.message);
+      enqueueSnackbar("Failed to import tariffs", { variant: "error" });
+    }
+  };
 
   const fetchTariffs = async () => {
     try {
@@ -342,7 +440,14 @@ const TariffsTab = () => {
         <Typography variant="h5" component="h2">
           Tariff Management
         </Typography>
-        <Box>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          flexWrap="wrap"
+          gap={1}
+          mb={2}
+        >
           <Button
             variant="contained"
             color="primary"
@@ -354,6 +459,30 @@ const TariffsTab = () => {
           </Button>
           <Button
             variant="outlined"
+            color="success"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportTariffs}
+            sx={{ mr: 1 }}
+          >
+            Export
+          </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<UploadIcon />}
+            onClick={() => fileInputRef.current.click()}
+          >
+            Import
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".csv"
+            style={{ display: "none" }}
+          />
+          <Button
+            variant="outlined"
             color="info"
             startIcon={<TrendingUpIcon />}
             onClick={handleOpenStatsDialog}
@@ -362,6 +491,35 @@ const TariffsTab = () => {
           </Button>
         </Box>
       </Box>
+
+      {csvFile && (
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <Typography variant="body2" sx={{ mr: 2 }}>
+            Selected file: {csvFile.name}
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            size="small"
+            onClick={handleImportTariffs}
+            disabled={importing}
+          >
+            {importing ? <CircularProgress size={24} /> : "Import Now"}
+          </Button>
+        </Box>
+      )}
+
+      {importSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {importSuccess}
+        </Alert>
+      )}
+
+      {importError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {importError}
+        </Alert>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

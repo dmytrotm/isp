@@ -1,0 +1,437 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Customer Management API",
+    "description": "API for managing customer data with role-based access control",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for authentication (regular or admin)"
+      },
+      "UserIdAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-User-ID",
+        "description": "User ID for customer self-access verification"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["email", "first_name", "last_name", "password"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "first_name": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "writeOnly": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "default": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "street_address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "postal_code": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "address_type": {
+            "type": "string",
+            "enum": ["billing", "shipping", "both"]
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "required": ["user", "status", "phone_number"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "user": {
+            "type": "integer"
+          },
+          "user_details": {
+            "type": "object",
+            "$ref": "#/components/schemas/User",
+            "readOnly": true
+          },
+          "status": {
+            "type": "integer"
+          },
+          "status_name": {
+            "type": "string",
+            "readOnly": true
+          },
+          "phone_number": {
+            "type": "string",
+            "pattern": "^\\+[0-9]{11,12}$"
+          },
+          "balance": {
+            "type": "number",
+            "format": "decimal",
+            "default": 0
+          },
+          "preferred_notification": {
+            "type": "string",
+            "enum": ["email", "sms"],
+            "default": "email"
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            },
+            "readOnly": true
+          },
+          "contracts": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "readOnly": true
+          },
+          "all_invoices": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "readOnly": true
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "readOnly": true
+          },
+          "support_tickets": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "readOnly": true
+          }
+        }
+      },
+      "CustomerCreate": {
+        "type": "object",
+        "required": [
+          "email",
+          "first_name",
+          "last_name",
+          "password",
+          "phone_number",
+          "status"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "first_name": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          },
+          "phone_number": {
+            "type": "string",
+            "pattern": "^\\+[0-9]{11,12}$"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "preferred_notification": {
+            "type": "string",
+            "enum": ["email", "sms"],
+            "default": "email"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "paths": {
+    "/external/customers/": {
+      "get": {
+        "summary": "List all customers",
+        "description": "Get a list of all customers. Admin access only.",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of customers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Not an admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new customer",
+        "description": "Create a new user and associated customer. Admin access only.",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "created"
+                    },
+                    "customer_id": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Not an admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/external/customers/{id}/": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          },
+          "description": "The customer ID"
+        }
+      ],
+      "get": {
+        "summary": "Get customer details",
+        "description": "Get details of a specific customer. Accessible by admin or the customer themselves.",
+        "security": [
+          {
+            "ApiKeyAuth": [],
+            "UserIdAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Not an admin or not your data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Customer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -11,6 +11,7 @@ import EmployeesTab from "./tabs/EmployeesTab";
 import InvoicesTab from "./tabs/InvoicesTab";
 import ContractsTab from "./tabs/ContractsTab";
 import ConnectionRequestsTab from "./tabs/ConnectionRequestsTab";
+import InternetUsageTab from "./tabs/InternetUsageTab";
 
 import { AttachMoney as TariffIcon } from "@mui/icons-material";
 import ServiceIcon from "@mui/icons-material/MiscellaneousServices";
@@ -72,17 +73,7 @@ import {
 } from "recharts";
 import api from "../../services/api";
 
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogTitle from "@mui/material/DialogTitle";
-
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import Select from "@mui/material/Select";
-import Checkbox from "@mui/material/Checkbox";
-import MenuItem from "@mui/material/MenuItem";
+import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
 
 const AdminDashboard = () => {
   const [adminProfile, setAdminProfile] = useState({});
@@ -172,7 +163,6 @@ const AdminDashboard = () => {
       })
       .then((response) => {
         const equipmentArray = Object.values(response.data || {});
-        console.log("Equipment Array:", equipmentArray);
         setEquipmentOptions(equipmentArray);
       })
       .catch((error) => console.error("Error fetching equipment:", error));
@@ -661,7 +651,6 @@ const AdminDashboard = () => {
           <LogOut className="h-4 w-4 mr-1" /> Logout
         </button>
       </Box>
-
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs
           value={tabValue}
@@ -687,6 +676,11 @@ const AdminDashboard = () => {
           />
           <Tab label="Contracts" icon={<Description />} iconPosition="start" />
           <Tab label="Reports" icon={<TrendingUpIcon />} iconPosition="start" />
+          <Tab
+            label="Internet Usage"
+            icon={<NetworkCheckIcon />}
+            iconPosition="start"
+          />
           <Tab label="Tariffs" icon={<TariffIcon />} iconPosition="start" />
           <Tab label="Services" icon={<ServiceIcon />} iconPosition="start" />
           <Tab
@@ -696,7 +690,6 @@ const AdminDashboard = () => {
           />
         </Tabs>
       </Box>
-
       {/* Overview Tab */}
       {tabValue === 0 && dashboardStats && (
         <Grid container spacing={3}>
@@ -883,21 +876,14 @@ const AdminDashboard = () => {
           </Grid>
         </Grid>
       )}
-
       {tabValue === 1 && <CustomersTab />}
-
       {tabValue === 2 && <EmployeesTab />}
-
       {tabValue === 3 && <InvoicesTab />}
-
       {/* Support Tickets Tab */}
       {tabValue === 4 && <SupportTicketsTab />}
-
       {/* Connection Requests Tab */}
       {tabValue === 5 && <ConnectionRequestsTab />}
-
       {tabValue === 6 && <ContractsTab />}
-
       {/* Reports Tab */}
       {tabValue === 7 && financialSummary && performanceMetrics && (
         <Grid container spacing={3}>
@@ -1005,12 +991,10 @@ const AdminDashboard = () => {
           </Grid>
         </Grid>
       )}
-
-      {tabValue === 8 && <TariffsTab />}
-
-      {tabValue === 9 && <ServicesTab />}
-
-      {tabValue === 10 && <EquipmentTab />}
+      {tabValue === 8 && <InternetUsageTab />}
+      {tabValue === 9 && <TariffsTab />}
+      {tabValue === 10 && <ServicesTab />}
+      {tabValue === 11 && <EquipmentTab />}
     </Container>
   );
 };

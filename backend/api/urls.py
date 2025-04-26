@@ -1,8 +1,22 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 from . import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from debug_toolbar.toolbar import debug_toolbar_urls
+from .external import ExternalCustomerView
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from rest_framework.permissions import IsAuthenticated
+from django.http import JsonResponse
+import json
+import os
+from django.conf import settings
+
+def get_api_schema(request):
+    schema_path = os.path.join(settings.BASE_DIR, 'your_app', 'schemas', 'customer_schema.json')
+    with open(schema_path, 'r') as f:
+        schema = json.load(f)
+    return JsonResponse(schema)
 
 # Create a router and register our viewsets with it
 router = DefaultRouter()
@@ -35,7 +49,11 @@ urlpatterns = [
     path('auth/user/', views.CurrentUserView.as_view(), name='current-user'),
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    path('external/customers/', ExternalCustomerView.as_view()),  # POST
+    path('external/customers/<int:pk>/', ExternalCustomerView.as_view()),  # GET
     
+    path('api/schema/', get_api_schema, name='api-schema'),
     
     # Include the router URLs
     path('', include(router.urls)),

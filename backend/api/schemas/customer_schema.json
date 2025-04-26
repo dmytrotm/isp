@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CustomerAPI",
+  "description": "Schema for Customer API operations",
+  "definitions": {
+    "User": {
+      "type": "object",
+      "required": ["email", "first_name", "last_name", "password"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address (unique)"
+        },
+        "first_name": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "User's first name"
+        },
+        "last_name": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "User's last name"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8,
+          "description": "User's password"
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the user account is active"
+        }
+      }
+    },
+    "Customer": {
+      "type": "object",
+      "required": ["user", "status", "phone_number"],
+      "properties": {
+        "user": {
+          "type": "integer",
+          "description": "ID of the associated user"
+        },
+        "status": {
+          "type": "integer",
+          "description": "ID of the customer status"
+        },
+        "phone_number": {
+          "type": "string",
+          "maxLength": 13,
+          "pattern": "^\\+?[0-9]{10,13}$",
+          "description": "Customer's phone number (unique)"
+        },
+        "balance": {
+          "type": "number",
+          "default": 0,
+          "description": "Customer's account balance"
+        },
+        "preferred_notification": {
+          "type": "string",
+          "enum": ["email", "sms"],
+          "default": "email",
+          "description": "Customer's preferred notification method"
+        }
+      }
+    },
+    "CustomerResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Customer ID"
+        },
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "User ID"
+            },
+            "email": {
+              "type": "string",
+              "format": "email",
+              "description": "User's email address"
+            },
+            "first_name": {
+              "type": "string",
+              "description": "User's first name"
+            },
+            "last_name": {
+              "type": "string",
+              "description": "User's last name"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "User creation timestamp"
+            }
+          }
+        },
+        "status": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "description": "Status ID"
+            },
+            "status": {
+              "type": "string",
+              "description": "Status name"
+            }
+          }
+        },
+        "phone_number": {
+          "type": "string",
+          "description": "Customer's phone number"
+        },
+        "balance": {
+          "type": "number",
+          "description": "Customer's account balance"
+        },
+        "preferred_notification": {
+          "type": "string",
+          "enum": ["email", "sms"],
+          "description": "Customer's preferred notification method"
+        },
+        "active_contracts_count": {
+          "type": "integer",
+          "description": "Number of active contracts"
+        },
+        "total_monthly_payment": {
+          "type": "number",
+          "description": "Total monthly payment amount from all active contracts"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/customers/": {
+      "post": {
+        "description": "Create a new customer (admin only)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "first_name",
+                  "last_name",
+                  "password",
+                  "phone_number",
+                  "status"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address (unique)"
+                  },
+                  "first_name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "description": "User's first name"
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "description": "User's last name"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "description": "User's password"
+                  },
+                  "phone_number": {
+                    "type": "string",
+                    "maxLength": 13,
+                    "pattern": "^\\+?[0-9]{10,13}$",
+                    "description": "Customer's phone number (unique)"
+                  },
+                  "status": {
+                    "type": "integer",
+                    "description": "ID of the customer status"
+                  },
+                  "balance": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Customer's account balance"
+                  },
+                  "preferred_notification": {
+                    "type": "string",
+                    "enum": ["email", "sms"],
+                    "default": "email",
+                    "description": "Customer's preferred notification method"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["created"]
+                    },
+                    "customer_id": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "description": "Error details"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,3 +8,7 @@ def generate_invoices_task():
 @shared_task
 def generate_invoices_with_payment_task():
     call_command('generate_invoices', 'process_payments')
+
+@shared_task
+def get_network_usage_task():
+    call_command('get_network_usage')

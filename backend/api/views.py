@@ -1,33 +1,29 @@
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
 from django.utils.timezone import now
 from django.http import HttpResponse
 from rest_framework import viewsets, status, permissions, filters
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny, BasePermission, SAFE_METHODS
 from datetime import timedelta
-from django.contrib.auth.models import Group
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.platypus import HRFlowable
+from django.core.exceptions import ValidationError
 import csv
 from io import StringIO
-from django.http import HttpResponse
 from rest_framework import status as http_status
 from rest_framework.parsers import MultiPartParser
 import io
 from datetime import datetime
 from django.db import transaction
 
-from django.db.models.functions import TruncDay, TruncMonth, TruncHour
-from django.db.models import Avg, Count, F, Sum, Case, When, Value, IntegerField, Q
+from django.db.models.functions import TruncDay, TruncMonth
 from django.utils import timezone
-
-from import_export.admin import ImportExportModelAdmin, ImportExportMixin
 
 from .models import (
     User, Customer, Employee, EmployeeRole, Address, Region, 
@@ -134,6 +130,7 @@ class AdminViewSet(viewsets.ViewSet):
         customers = Customer.objects.all()
 
         search_query = request.query_params.get('search', '')
+        status_filter = request.query_params.get('status', '')
 
         if search_query:
             customers = customers.filter(
@@ -142,7 +139,16 @@ class AdminViewSet(viewsets.ViewSet):
                 Q(user__email__icontains=search_query) |
                 Q(phone_number__icontains=search_query)
             )
-        
+
+        if status_filter:
+            # Convert to integer if it's a numeric status ID
+            try:
+                status_id = int(status_filter)
+                customers = customers.filter(status=status_id)
+            except (ValueError, TypeError):
+                # If conversion fails, it might be a string status name
+                customers = customers.filter(status__status__iexact=status_filter)
+            
         page = self.paginate_queryset(customers)
         if page is not None:
             serializer = CustomerSerializer(page, many=True)
@@ -582,6 +588,117 @@ class AdminViewSet(viewsets.ViewSet):
             'errors': error_rows if error_rows else None
         }, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=['GET'])
+    def export_tariffs_csv(self, request):
+        """Export tariffs to CSV"""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="tariffs.csv"'
+        
+        tariffs = Tariff.objects.all().prefetch_related('tariffservice_set', 'tariffservice_set__service')
+        
+        writer = csv.writer(response)
+        # Write header row
+        writer.writerow(['id', 'name', 'price', 'description', 'is_active', 'services'])
+        
+        # Write data rows
+        for tariff in tariffs:
+            services = ','.join([ts.service.name for ts in tariff.tariffservice_set.all()])
+            writer.writerow([
+                tariff.id,
+                tariff.name,
+                tariff.price,
+                tariff.description,
+                tariff.is_active,
+                services
+            ])
+        
+        return response
+    
+    @action(detail=False, methods=['POST'], parser_classes=[MultiPartParser])
+    def import_tariffs_csv(self, request):
+        """Import tariffs from CSV"""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Starting tariff import")
+        
+        if 'csv_file' not in request.FILES:
+            return Response({'message': 'No CSV file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        csv_file = request.FILES['csv_file']
+        
+        # Check file type
+        if not csv_file.name.endswith('.csv'):
+            return Response({'message': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
+
+        decoded_file = csv_file.read().decode('utf-8')
+        csv_data = csv.DictReader(StringIO(decoded_file))
+        
+        created_count = 0
+        error_rows = []
+        
+        logger.info(f"CSV file decoded, starting to process rows")
+        
+        for row_num, row in enumerate(csv_data, start=2):  # Start at line 2 (after header)
+            logger.info(f"Processing row {row_num}: {row}")
+            
+            # Skip empty rows
+            if not row.get('name') or not row.get('price'):
+                error_msg = f"Row {row_num}: Missing required fields (name or price)"
+                logger.warning(error_msg)
+                error_rows.append(error_msg)
+                continue
+            
+            # Process each row in its own transaction
+            try:
+                with transaction.atomic():
+                    # Create or update tariff
+                    is_active = row.get('is_active', 'True').lower() in ('true', 'yes', '1')
+                    
+                    tariff, created = Tariff.objects.update_or_create(
+                        name=row.get('name'),
+                        defaults={
+                            'price': float(row.get('price')),
+                            'description': row.get('description', ''),
+                            'is_active': is_active
+                        }
+                    )
+                    
+                    logger.info(f"{'Created' if created else 'Updated'} tariff: {tariff.id}")
+                    
+                    # Process services if provided
+                    if row.get('services'):
+                        # Remove existing service relationships
+                        TariffService.objects.filter(tariff=tariff).delete()
+                        
+                        # Add new service relationships
+                        service_names = [s.strip() for s in row.get('services').split(',')]
+                        for service_name in service_names:
+                            if not service_name:
+                                continue
+                                
+                            try:
+                                service = Service.objects.get(name=service_name)
+                                TariffService.objects.create(tariff=tariff, service=service)
+                                logger.info(f"Added service {service.name} to tariff {tariff.name}")
+                            except Service.DoesNotExist:
+                                logger.warning(f"Service {service_name} not found, skipping")
+                    
+                    created_count += 1
+                        
+            except Exception as e:
+                error_msg = f"Row {row_num}: {str(e)}"
+                logger.error(error_msg, exc_info=True)
+                error_rows.append(error_msg)
+        
+        logger.info(f"Finished processing all rows. Created/updated count: {created_count}")
+        
+        logger.info("Import completed successfully")
+        return Response({
+            'message': f'Successfully imported {created_count} tariffs',
+            'count': created_count,
+            'errors': error_rows if error_rows else None
+        }, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['DELETE'])
     def delete_employee(self, request, pk=None):
         """Delete an existing employee"""
@@ -599,6 +716,26 @@ class AdminViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['GET'], permission_classes=[IsAdmin | IsManager])
     def contracts(self, request):
         contracts = Contract.objects.all()
+
+        from django.db.models import Case, When, IntegerField, Q
+        
+        # Get current date for comparison
+        current_date = timezone.now().date()
+        
+        # Annotate contracts with a status priority based on active/inactive status
+        contracts = contracts.annotate(
+            status_priority=Case(
+                # Contract is active if start_date <= current_date <= end_date (or end_date is None)
+                When(
+                    Q(start_date__lte=current_date) & 
+                    (Q(end_date__gte=current_date) | Q(end_date__isnull=True)), 
+                    then=0
+                ),  # Active contracts get highest priority (0)
+                default=1,  # Inactive contracts get lower priority (1)
+                output_field=IntegerField(),
+            )
+        ).order_by('status_priority', '-created_at')
+
         page = self.paginate_queryset(contracts)
         if page is not None:
             serializer = ContractSerializer(page, many=True)
@@ -666,10 +803,20 @@ class AdminViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['GET'], permission_classes=[IsAdmin | IsManager])
     def connection_requests(self, request):
         status_filter = request.query_params.get('status', None)
-        requests = ConnectionRequest.objects.all()
+        requests = ConnectionRequest.objects.all().order_by('-created_at')
         
         if status_filter:
             requests = requests.filter(status__status=status_filter)
+
+        from django.db.models import Case, When, IntegerField
+    
+        requests = requests.annotate(
+            status_priority=Case(
+                When(status__status='New', then=0),  # "New" status gets highest priority (0)
+                default=1,                           # All other statuses get lower priority (1)
+                output_field=IntegerField(),
+            )
+        ).order_by('status_priority', '-created_at')
         
         page = self.paginate_queryset(requests)
         if page is not None:
@@ -732,81 +879,186 @@ class AdminViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['POST'], url_path='approve', permission_classes=[IsAdmin | IsManager])
     def approve_request(self, request, pk=None):
         try:
+            print(f"[DEBUG] Starting approval process for connection request ID {pk}")
+            
             connection_request = ConnectionRequest.objects.get(pk=pk)
+            print(f"[DEBUG] Found ConnectionRequest: {connection_request}")
 
             try:
+                # Parse start_date
                 if 'start_date' in request.data and request.data['start_date']:
+                    print(f"[DEBUG] Received start_date: {request.data['start_date']}")
                     start_date = datetime.strptime(request.data['start_date'], "%Y-%m-%d").replace(hour=0, minute=0, second=0)
-                    start_date = timezone.make_aware(start_date)  # Make timezone-aware
+                    start_date = timezone.make_aware(start_date)
                 else:
                     start_date = timezone.now()
-                    
+                    print(f"[DEBUG] No start_date provided, using current time: {start_date}")
+
+                # Parse end_date
                 if 'end_date' in request.data and request.data['end_date']:
+                    print(f"[DEBUG] Received end_date: {request.data['end_date']}")
                     end_date = datetime.strptime(request.data['end_date'], "%Y-%m-%d").replace(hour=0, minute=0, second=0)
-                    end_date = timezone.make_aware(end_date)  # Make timezone-aware
+                    end_date = timezone.make_aware(end_date)
                 else:
                     end_date = None
+                    print("[DEBUG] No end_date provided.")
+
             except ValueError as e:
+                print(f"[ERROR] Invalid date format: {e}")
                 return Response({"error": f"Invalid date format: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Create a new contract
-            contract = Contract.objects.create(
-                customer=connection_request.customer,
-                connection_request=connection_request,
-                address=connection_request.address,
-                tariff=connection_request.tariff,
-                service=connection_request.tariff.services.first(),
-                start_date = start_date,
-                end_date = end_date,
-            )
-            
-            # Add equipment if provided in request
-            if 'equipment' in request.data and request.data['equipment']:
-                for equipment_id in request.data['equipment']:
-                    equipment = Equipment.objects.get(id=equipment_id)
-                    ContractEquipment.objects.create(
-                        contract=contract,
-                        equipment=equipment
+
+            # First update the connection request status 
+            print("[DEBUG] Setting ConnectionRequest status to Approved...")
+            approved_status = Status.objects.get(status='Approved', context__context='ConnectionRequest')
+            ConnectionRequest.objects.filter(pk=pk).update(status=approved_status)
+            print(f"[DEBUG] ConnectionRequest ID {connection_request.id} status set to Approved.")
+
+            # FIRST TRANSACTION: Create the contract
+            contract = None
+            try:
+                with transaction.atomic():
+                    print("[DEBUG] Creating new Contract...")
+                    # Refresh the connection request from DB to get the updated status
+                    connection_request = ConnectionRequest.objects.get(pk=pk)
+                    
+                    contract = Contract.objects.create(
+                        customer=connection_request.customer,
+                        connection_request=connection_request,
+                        address=connection_request.address,
+                        tariff=connection_request.tariff,
+                        service=connection_request.tariff.services.first(),
+                        start_date=start_date,
+                        end_date=end_date,
                     )
-            
-            # Mark request as completed/approved
-            connection_request.mark_as_completed()
-            
+                    print(f"[DEBUG] Contract created with ID {contract.id}")
+
+                    # Add equipment if provided
+                    if 'equipment' in request.data and request.data['equipment']:
+                        print(f"[DEBUG] Adding equipment to Contract ID {contract.id}")
+                        for equipment_id in request.data['equipment']:
+                            try:
+                                equipment = Equipment.objects.get(id=equipment_id)
+                                ContractEquipment.objects.create(
+                                    contract=contract,
+                                    equipment=equipment
+                                )
+                                print(f"[DEBUG] Added equipment ID {equipment_id} to contract.")
+                            except Equipment.DoesNotExist:
+                                print(f"[ERROR] Equipment ID {equipment_id} not found.")
+                                raise Exception(f"Equipment ID {equipment_id} not found")
+            except Exception as e:
+                print(f"[ERROR] Error creating contract: {e}")
+                return Response({"error": f"Failed to create contract: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Ensure the contract was created successfully
+            if not contract or not contract.id:
+                print("[ERROR] Contract creation failed")
+                return Response({"error": "Failed to create contract"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # SECOND TRANSACTION: Create the invoice for the committed contract
+            try:
+                with transaction.atomic():
+                    print(f"[DEBUG] Creating invoice for Contract ID {contract.id}")
+                    # Fetch the contract again to ensure we have the latest from the database
+                    fresh_contract = Contract.objects.get(id=contract.id)
+                    
+                    invoice = Invoice.objects.create(
+                        contract=fresh_contract,
+                        amount=fresh_contract.tariff.price,
+                        due_date=timezone.now() + timedelta(days=30),
+                        description=f"Monthly fee for {fresh_contract.tariff.name}"
+                    )
+                    print(f"[DEBUG] Invoice created with ID {invoice.id}")
+            except Exception as e:
+                print(f"[ERROR] Error creating invoice: {e}")
+
             return Response({
                 "success": True,
                 "message": "Connection request approved and contract created",
                 "contract_id": contract.id
             }, status=status.HTTP_200_OK)
+
         except ConnectionRequest.DoesNotExist:
+            print(f"[ERROR] ConnectionRequest ID {pk} not found.")
             return Response({"error": "Connection request not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            print(f"[ERROR] Unexpected error during approval: {e}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=['POST'], url_path='decline', permission_classes=[IsAdmin | IsManager])
+        
+    @action(detail=True, methods=['PATCH'], url_path='decline', permission_classes=[IsAdmin | IsManager])
     def decline_request(self, request, pk=None):
         try:
+            # Check if the connection request exists
             connection_request = ConnectionRequest.objects.get(pk=pk)
             
-            # Set status to declined
-            declined_status = Status.objects.get(status='Denied', context__context='ConnectionRequest')
-            connection_request.status = declined_status
-            connection_request.save()
+            # Check if the request already has a contract
+            if hasattr(connection_request, 'contract') or getattr(connection_request, 'contract', None):
+                return Response({
+                    "error": "Cannot decline a connection request that already has an associated contract"
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-            return Response({
-                "success": True,
-                "message": "Connection request declined"
-            }, status=status.HTTP_200_OK)
+            try:
+                # Get the status object
+                declined_status = Status.objects.get(status='Denied', context__context='ConnectionRequest')
+                
+                # Update the connection request directly in the database
+                ConnectionRequest.objects.filter(pk=pk).update(status=declined_status)
+                
+                return Response({
+                    "success": True,
+                    "message": "Connection request declined"
+                }, status=status.HTTP_200_OK)
+                
+            except Exception as db_error:
+                print(f"Error occurred: {str(db_error)}")
+                return Response({
+                    "error": f"Database error: {str(db_error)}"
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
         except ConnectionRequest.DoesNotExist:
             return Response({"error": "Connection request not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=True, methods=['patch'], url_path='terminate-contract', permission_classes=[IsAdmin | IsManager])
+        
+    @action(detail=True, methods=['PATCH'], url_path='terminate-contract', permission_classes=[IsAdmin | IsManager])
     def terminate_contract(self, request, pk=None):
-        contract = Contract.objects.get(pk=pk)
-        contract.terminate()
-        return Response({'status': 'Contract terminated successfully'})
+        try:
+            contract = Contract.objects.get(pk=pk)
             
+            # Use timezone.now() to get timezone-aware date
+            today = timezone.now().date()
+            
+            # Check if termination is possible
+            if contract.end_date is None or contract.end_date.date() > today:
+                # Update directly with timezone-aware date
+                today_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+                Contract.objects.filter(pk=pk).update(end_date=today_datetime)
+                
+                # Log the update for debugging
+                print(f"[DEBUG] Contract {pk} terminated. Set end_date to {today_datetime}")
+                
+                # Refresh the contract instance from the database
+                contract.refresh_from_db()
+                
+                return Response({
+                    "success": True,
+                    "message": "Contract terminated successfully",
+                    "end_date": contract.end_date
+                }, status=status.HTTP_200_OK)
+            else:
+                print(f"[DEBUG] Contract already terminated: end_date = {contract.end_date}, today = {today}")
+                return Response({
+                    "success": False,
+                    "message": "Contract is already terminated or expired"
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Contract.DoesNotExist:
+            print(f"[ERROR] Contract {pk} not found")
+            return Response({"error": "Contract not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"[ERROR] Exception when terminating contract {pk}: {e}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+           
     @action(detail=False, methods=['GET'])
     def performance_metrics(self, request):
         # Get query params for date filtering
@@ -1603,7 +1855,8 @@ class AdminViewSet(viewsets.ViewSet):
 
             active_contracts = Contract.objects.filter(
                 Q(end_date__gte=now()) | Q(end_date__isnull=True),
-                start_date__isnull=False
+                start_date__isnull=False,
+                tariff=tariff  # Add this filter to get only contracts for this specific tariff
             ).count()
             
             # Sum of monthly invoices for this tariff
@@ -1681,16 +1934,7 @@ class AdminViewSet(viewsets.ViewSet):
         try:
             ticket = SupportTicket.objects.get(pk=pk)
             
-            # Handle specific status change for "resolved"
-            if request.data.get('mark_as_resolved', False):
-                try:
-                    # Find status with "resolved" status and context related to SupportTicket
-                    resolved_status = Status.objects.get(status="resolved", context="support_ticket")
-                    ticket.status = resolved_status
-                except Status.DoesNotExist:
-                    return Response({"error": "Resolved status not found"}, status=status.HTTP_404_NOT_FOUND)
-            # Handle regular status change if provided
-            elif 'status' in request.data:
+            if 'status' in request.data:
                 try:
                     status_obj = Status.objects.get(pk=request.data['status'])
                     # Check if status context is appropriate for support tickets
@@ -2660,25 +2904,7 @@ class SupportTicketViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Ticket assigned successfully'})
         except Employee.DoesNotExist:
             return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    @action(detail=True, methods=['post'], permission_classes=[IsSupport | IsManager])
-    def update_status(self, request, pk=None):
-        ticket = self.get_object()
-        new_status_str = request.data.get('status')
-
-        # Get all valid statuses for SupportTicket
-        valid_statuses = Status.objects.filter(context__context='SupportTicket')
-        
-        # Try to find the actual Status instance
-        try:
-            status_instance = valid_statuses.get(status=new_status_str)
-        except Status.DoesNotExist:
-            return Response({'error': 'Invalid status'}, status=status.HTTP_400_BAD_REQUEST)
-
-        ticket.status = status_instance
-        ticket.save()
-        return Response({'status': 'Ticket status updated successfully'})
-
+            
 # Employee views
 class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all()

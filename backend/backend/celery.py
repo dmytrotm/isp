@@ -20,4 +20,8 @@ app.conf.beat_schedule = {
         'task': 'api.tasks.generate_invoices_with_payment_task',
         'schedule': crontab(hour=1, minute=0),  # щодня о 01:00
     },
+    'generate-invoices-with-payment-every-day': {
+        'task': 'api.tasks.get_network_usage_task',
+        'schedule': crontab(hour=1, minute=0),  # щодня о 01:00
+    },
 }

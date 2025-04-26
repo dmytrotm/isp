@@ -91,7 +91,8 @@ INSTALLED_APPS = [
     "corsheaders",
     'django_filters',
     'import_export',
-    'django_celery_beat'
+    'django_celery_beat',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [

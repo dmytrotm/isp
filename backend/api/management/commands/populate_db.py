@@ -1,0 +1,540 @@
+import random
+from decimal import Decimal
+from datetime import timedelta
+from django.core.management.base import BaseCommand
+from django.utils.timezone import now
+from django.core.exceptions import ValidationError
+from faker import Faker
+
+from django.contrib.auth.models import Group
+from api.models import (
+    User, EmployeeRole, StatusContext, Status, PaymentMethod, Region,
+    EquipmentCategory, Equipment, Customer, Address, Employee,
+    Service, Tariff, TariffService, ConnectionRequest, ConnectionRequestAssignment,
+    Contract, ContractEquipment, Payment, Invoice, SupportTicket, NetworkUsage
+)
+
+# Initialize Faker
+fake = Faker('uk_UA')  # Ukrainian locale, adjust as needed
+Faker.seed(12345)  # For reproducibility
+
+
+class Command(BaseCommand):
+    help = 'Populates the database with sample data for testing'
+    
+    def add_arguments(self, parser):
+        parser.add_argument('--customers', type=int, default=50, help='Number of customers to create')
+        parser.add_argument('--staff', type=int, default=10, help='Number of staff members to create')
+        parser.add_argument('--equipment', type=int, default=20, help='Number of equipment items to create')
+        parser.add_argument('--services', type=int, default=5, help='Number of services to create')
+        parser.add_argument('--tariffs', type=int, default=10, help='Number of tariffs to create')
+        parser.add_argument('--tickets', type=int, default=40, help='Number of support tickets to create')
+        parser.add_argument('--requests', type=int, default=30, help='Number of connection requests to create')
+        parser.add_argument('--contract-percent', type=int, default=70, 
+                           help='Percentage of completed requests to convert to contracts')
+        parser.add_argument('--clear', action='store_true', help='Clear existing data before populating')
+    
+    def handle(self, *args, **options):       
+        if options['clear']:
+            self.clear_data()
+        
+        self.create_initial_data()
+        self.create_equipment(options['equipment'])
+        self.create_services_and_tariffs(options['services'], options['tariffs'])
+        self.create_users_and_staff(options['staff'])
+        self.create_customers(options['customers'])
+        self.create_connection_requests(options['requests'])
+        self.create_contracts(options['contract_percent'])
+        self.create_support_tickets(options['tickets'])
+        self.create_payments_and_invoices()
+        self.create_network_usage()
+        
+        self.stdout.write(self.style.SUCCESS('Successfully populated the database with sample data!'))
+    
+    def clear_data(self):
+        """Clear existing data from the database"""
+        self.stdout.write(self.style.WARNING('Clearing existing data...'))
+        
+        # Clear data in reverse order of dependencies
+        NetworkUsage.objects.all().delete()
+        Payment.objects.all().delete()
+        Invoice.objects.all().delete()
+        SupportTicket.objects.all().delete()
+        ContractEquipment.objects.all().delete()
+        Contract.objects.all().delete()
+        ConnectionRequestAssignment.objects.all().delete()
+        ConnectionRequest.objects.all().delete()
+        Address.objects.all().delete()
+        Customer.objects.all().delete()
+        Employee.objects.all().delete()
+        TariffService.objects.all().delete()
+        Tariff.objects.all().delete()
+        Service.objects.all().delete()
+        Equipment.objects.all().delete()
+        
+        # Keep users for now since they might be referenced elsewhere
+        # User.objects.filter(is_superuser=False).delete()
+        
+        self.stdout.write(self.style.SUCCESS('Data cleared successfully.'))
+
+    def create_initial_data(self):
+        """Create basic data required for relationships"""
+        self.stdout.write(self.style.NOTICE('Creating initial data...'))
+        
+        # Create employee roles
+        roles = ['Admin', 'Manager', 'Support', 'Technician']
+        for role_name in roles:
+            EmployeeRole.objects.get_or_create(name=role_name)
+        
+        # Create status contexts
+        contexts = ['ConnectionRequest', 'SupportTicket', 'Customer']
+        for context_name in contexts:
+            StatusContext.objects.get_or_create(context=context_name)
+        
+        # Create statuses for each context
+        connection_context = StatusContext.objects.get(context='ConnectionRequest')
+        connection_statuses = ['New', 'Approved', 'Denied']
+        for status in connection_statuses:
+            Status.objects.get_or_create(status=status, context=connection_context)
+        
+        support_context = StatusContext.objects.get(context='SupportTicket')
+        support_statuses = ['New', 'Open', 'In Progress', 'Resolved']
+        for status in support_statuses:
+            Status.objects.get_or_create(status=status, context=support_context)
+        
+        customer_context = StatusContext.objects.get(context='Customer')
+        customer_statuses = ['Active', 'Inactive', 'Blocked']
+        for status in customer_statuses:
+            Status.objects.get_or_create(status=status, context=customer_context)
+        
+        # Create payment methods
+        payment_methods = ['Credit Card', 'Bank Transfer', 'Cash', 'Mobile Payment']
+        for method in payment_methods:
+            PaymentMethod.objects.get_or_create(method=method)
+        
+        # Create regions
+        regions = ['Kyiv', 'Lviv', 'Odesa', 'Kharkiv', 'Dnipro']
+        for region_name in regions:
+            Region.objects.get_or_create(name=region_name)
+        
+        # Create equipment categories
+        categories = ['Router', 'Modem', 'Switch', 'Optical Network Terminal', 'Cable']
+        for category_name in categories:
+            EquipmentCategory.objects.get_or_create(name=category_name)
+        
+        self.stdout.write(self.style.SUCCESS('Initial data created successfully.'))
+
+    def create_equipment(self, num_items):
+        """Create equipment items"""
+        self.stdout.write(self.style.NOTICE(f'Creating {num_items} equipment items...'))
+        
+        fake = Faker('uk_UA')
+        categories = list(EquipmentCategory.objects.all())
+        
+        for _ in range(num_items):
+            name = fake.word() + " " + fake.word()
+            description = fake.paragraph()
+            price = Decimal(str(random.randint(500, 5000)))
+            stock_quantity = random.randint(5, 50)
+            category = random.choice(categories)
+            state = random.choice(['new', 'used'])
+            
+            Equipment.objects.create(
+                name=name,
+                description=description,
+                price=price,
+                stock_quantity=stock_quantity,
+                category=category,
+                state=state
+            )
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {num_items} equipment items.'))
+
+    def create_services_and_tariffs(self, num_services, num_tariffs):
+        """Create services and tariffs"""
+        self.stdout.write(self.style.NOTICE(f'Creating {num_services} services and {num_tariffs} tariffs...'))
+        
+        fake = Faker('uk_UA')
+        
+        # Create services
+        services = []
+        service_names = [
+            'Internet Access', 'IPTV', 'VoIP Telephony', 
+            'Cloud Storage', 'Technical Support'
+        ]
+        
+        for name in service_names[:num_services]:
+            service, created = Service.objects.get_or_create(
+                name=name,
+                defaults={
+                    'description': fake.paragraph(),
+                    'is_active': True
+                }
+            )
+            services.append(service)
+        
+        # Create tariffs
+        tariff_names = [
+            'Basic', 'Standard', 'Premium', 'Ultra', 'Business', 
+            'Student', 'Family', 'Gaming', 'Streaming', 'Professional'
+        ]
+        
+        for name in tariff_names[:num_tariffs]:
+            tariff, created = Tariff.objects.get_or_create(
+                name=name,
+                defaults={
+                    'price': Decimal(str(random.randint(200, 1000))),
+                    'description': fake.paragraph(),
+                    'is_active': True
+                }
+            )
+            
+            # Add random services to this tariff
+            num_services_to_add = random.randint(1, min(3, len(services)))
+            for service in random.sample(services, num_services_to_add):
+                TariffService.objects.get_or_create(tariff=tariff, service=service)
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {num_services} services and {num_tariffs} tariffs.'))
+
+    def create_users_and_staff(self, num_staff):
+        """Create admin user and staff members"""
+        self.stdout.write(self.style.NOTICE(f'Creating admin and {num_staff} staff members...'))
+        
+        fake = Faker('uk_UA')
+        
+        # Create admin user if it doesn't exist
+        admin_email = 'admin@example.com'
+        admin_user, created = User.objects.get_or_create(
+            email=admin_email,
+            defaults={
+                'first_name': 'Admin',
+                'last_name': 'User',
+                'is_active': True,
+                'is_staff': True,
+                'is_superuser': True
+            }
+        )
+        
+        if created:
+            admin_user.set_password('adminpassword')
+            admin_user.save()
+            admin_role = EmployeeRole.objects.get(name='Admin')
+            Employee.objects.create(user=admin_user, role=admin_role)
+            self.stdout.write(self.style.SUCCESS('Created admin user with email: admin@example.com and password: adminpassword'))
+        
+        # Create staff members
+        roles = list(EmployeeRole.objects.exclude(name='Admin'))
+        
+        for i in range(num_staff):
+            first_name = fake.first_name()
+            last_name = fake.last_name()
+            email = f"{first_name.lower()}.{last_name.lower()}{i}@example.com"
+            
+            try:
+                user, created = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        'first_name': first_name,
+                        'last_name': last_name,
+                        'is_active': True,
+                        'is_staff': True
+                    }
+                )
+                
+                if created:
+                    user.set_password('password123')
+                    user.save()
+                    
+                    role = random.choice(roles)
+                    Employee.objects.create(user=user, role=role)
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error creating staff {email}: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created admin and {num_staff} staff members.'))
+
+    def create_customers(self, num_customers):
+        """Create customer accounts with addresses"""
+        self.stdout.write(self.style.NOTICE(f'Creating {num_customers} customers...'))
+        
+        fake = Faker('uk_UA')
+        customer_status = Status.objects.get(status='Active', context__context='Customer')
+        regions = list(Region.objects.all())
+        
+        for i in range(num_customers):
+            first_name = fake.first_name()
+            last_name = fake.last_name()
+            email = f"{first_name.lower()}.{last_name.lower()}{i}@example.com"
+            
+            # Generate valid Ukrainian phone number in the required format
+            phone_number = "+380" + ''.join([str(random.randint(0, 9)) for _ in range(9)])
+            
+            try:
+                # Create user
+                user, created = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        'first_name': first_name,
+                        'last_name': last_name,
+                        'is_active': True,
+                        'is_staff': False
+                    }
+                )
+                
+                if created:
+                    user.set_password('password123')
+                    user.save()
+                
+                # Create customer profile
+                customer, customer_created = Customer.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'status': customer_status,
+                        'phone_number': phone_number,
+                        'balance': Decimal(str(random.randint(0, 2000))),
+                        'preferred_notification': random.choice(['email', 'sms'])
+                    }
+                )
+                
+                # Create 1-2 addresses for this customer
+                if customer_created:
+                    for _ in range(random.randint(1, 2)):
+                        Address.objects.create(
+                            apartment=str(random.randint(1, 200)),
+                            building=str(random.randint(1, 100)),
+                            street=fake.street_name(),
+                            city=fake.city(),
+                            region=random.choice(regions),
+                            customer=customer
+                        )
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error creating customer {email}: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {num_customers} customers.'))
+
+    def create_connection_requests(self, num_requests):
+        """Create connection requests"""
+        self.stdout.write(self.style.NOTICE(f'Creating {num_requests} connection requests...'))
+        
+        customers = list(Customer.objects.all())
+        statuses = list(Status.objects.filter(context__context='ConnectionRequest'))
+        tariffs = list(Tariff.objects.filter(is_active=True))
+        technicians = list(Employee.objects.filter(role__name='Technician'))
+        
+        count = 0
+        for _ in range(num_requests):
+            try:
+                if not customers:
+                    self.stdout.write(self.style.WARNING('No customers available to create connection requests'))
+                    break
+                    
+                customer = random.choice(customers)
+                status = random.choice(statuses)
+                
+                # Get a random address from this customer
+                addresses = list(Address.objects.filter(customer=customer))
+                if not addresses:
+                    continue
+                
+                address = random.choice(addresses)
+                tariff = random.choice(tariffs)
+                
+                # Create the connection request
+                request = ConnectionRequest.objects.create(
+                    customer=customer,
+                    status=status,
+                    address=address,
+                    tariff=tariff,
+                    notes=fake.paragraph() if random.random() > 0.5 else None
+                )
+                
+                # Assign a technician
+                if random.random() > 0.3 and technicians:  # 70% chance to have a technician
+                    technician = random.choice(technicians)
+                    ConnectionRequestAssignment.objects.create(
+                        connection_request=request,
+                        employee=technician,
+                        role='technician'
+                    )
+                count += 1
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error creating connection request: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {count} connection requests.'))
+
+    def create_contracts(self, percentage_of_requests):
+        """Create contracts for completed connection requests"""
+        self.stdout.write(self.style.NOTICE(f'Creating contracts for {percentage_of_requests}% of connection requests...'))
+        
+        # Get completed connection requests
+        completed_status = Status.objects.get(status='Completed', context__context='ConnectionRequest')
+        all_requests = ConnectionRequest.objects.filter(status=completed_status)
+        
+        # Calculate how many contracts to create
+        num_contracts = int(len(all_requests) * (percentage_of_requests / 100))
+        requests_for_contracts = random.sample(list(all_requests), min(num_contracts, len(all_requests)))
+        
+        equipment_items = list(Equipment.objects.filter(stock_quantity__gt=0))
+        
+        count = 0
+        for request in requests_for_contracts:
+            try:
+                # Get a service from the tariff
+                tariff_services = list(request.tariff.services.all())
+                if not tariff_services:
+                    self.stdout.write(self.style.WARNING(f"Tariff {request.tariff.name} has no services, skipping contract creation"))
+                    continue
+                    
+                service = random.choice(tariff_services)
+                
+                contract = Contract.objects.create(
+                    customer=request.customer,
+                    connection_request=request,
+                    address=request.address,
+                    service=service,
+                    tariff=request.tariff,
+                    start_date=now() - timedelta(days=random.randint(1, 90)),
+                    end_date=now() + timedelta(days=random.randint(180, 365))
+                )
+                
+                # Assign equipment if available
+                if equipment_items and random.random() > 0.3:  # 70% chance to have equipment
+                    num_equipment = random.randint(1, min(2, len(equipment_items)))
+                    for equip in random.sample(equipment_items, num_equipment):
+                        if equip.stock_quantity > 0:
+                            try:
+                                ContractEquipment.objects.create(
+                                    contract=contract,
+                                    equipment=equip,
+                                    is_active=True
+                                )
+                            except ValueError:
+                                self.stdout.write(self.style.WARNING(f"Not enough {equip.name} in stock"))
+                count += 1
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error creating contract for request {request.id}: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {count} contracts.'))
+
+    def create_support_tickets(self, num_tickets):
+        """Create support tickets"""
+        self.stdout.write(self.style.NOTICE(f'Creating {num_tickets} support tickets...'))
+        
+        fake = Faker('uk_UA')
+        customers = list(Customer.objects.filter(user__is_active=True))
+        statuses = list(Status.objects.filter(context__context='SupportTicket'))
+        support_staff = list(Employee.objects.filter(role__name='Support'))
+        
+        subjects = [
+            "Internet connection issue", "Billing question", "Service upgrade request",
+            "Technical problem", "Equipment malfunction", "Speed issues",
+            "Installation question", "Account access problem", "Package change request"
+        ]
+        
+        count = 0
+        for _ in range(num_tickets):
+            try:
+                customer = random.choice(customers)
+                status = random.choice(statuses)
+                subject = random.choice(subjects)
+                
+                ticket = SupportTicket.objects.create(
+                    customer=customer,
+                    subject=subject,
+                    description=fake.paragraph(nb_sentences=3),
+                    status=status
+                )
+                
+                # Assign support staff for tickets that aren't new
+                if status.status != 'New' and support_staff and random.random() > 0.2:
+                    ticket.assigned_to = random.choice(support_staff)
+                    ticket.save()
+                count += 1
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error creating support ticket: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {count} support tickets.'))
+
+    def create_payments_and_invoices(self):
+        """Create payments and invoices for all contracts"""
+        self.stdout.write(self.style.NOTICE('Creating payments and invoices...'))
+        
+        contracts = Contract.objects.filter(end_date__gt=now())
+        payment_methods = list(PaymentMethod.objects.all())
+        
+        invoice_count = 0
+        payment_count = 0
+        
+        for contract in contracts:
+            # Create 1-3 past invoices per contract
+            for i in range(random.randint(1, 3)):
+                issue_date = contract.start_date + timedelta(days=30 * i)
+                due_date = issue_date + timedelta(days=14)
+                
+                status = 'paid'
+                if random.random() < 0.1:  # 10% chance to be overdue
+                    status = 'overdue'
+                elif random.random() < 0.2:  # 20% chance to be pending
+                    status = 'pending'
+                
+                amount = contract.tariff.price
+                
+                try:
+                    invoice = Invoice.objects.create(
+                        contract=contract,
+                        amount=amount,
+                        due_date=due_date,
+                        description=f"Monthly fee for {contract.tariff.name}",
+                        status=status
+                    )
+                    invoice_count += 1
+                    
+                    # Create payment for paid invoices
+                    if status == 'paid':
+                        payment_date = issue_date + timedelta(days=random.randint(1, 10))
+                        
+                        Payment.objects.create(
+                            customer=contract.customer,
+                            amount=amount,
+                            payment_date=payment_date,
+                            method=random.choice(payment_methods)
+                        )
+                        payment_count += 1
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f"Error creating invoice for contract {contract.id}: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {invoice_count} invoices and {payment_count} payments.'))
+
+    def create_network_usage(self):
+        """Create network usage data for all contracts"""
+        self.stdout.write(self.style.NOTICE('Creating network usage data...'))
+        
+        contracts = Contract.objects.filter(end_date__gt=now())
+        usage_records = 0
+        
+        for contract in contracts:
+            start_date = max(contract.start_date.date(), (now() - timedelta(days=30)).date())
+            end_date = now().date()
+            
+            current_date = start_date
+            while current_date <= end_date:
+                # Generate random usage data
+                download = Decimal(str(random.uniform(0.5, 10.0))).quantize(Decimal('0.01'))
+                upload = Decimal(str(random.uniform(0.2, 3.0))).quantize(Decimal('0.01'))
+                
+                try:
+                    _, created = NetworkUsage.objects.get_or_create(
+                        contract=contract,
+                        date=current_date,
+                        defaults={
+                            'download_gb': download,
+                            'upload_gb': upload
+                        }
+                    )
+                    if created:
+                        usage_records += 1
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f"Error creating network usage for contract {contract.id}: {str(e)}"))
+                
+                current_date += timedelta(days=1)
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {usage_records} network usage records.'))

@@ -37,6 +37,12 @@ import {
   Toolbar,
 } from "@mui/material";
 import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
+import {
   Person as PersonIcon,
   Notifications as NotificationsIcon,
   Warning as WarningIcon,
@@ -76,6 +82,7 @@ function TabPanel(props) {
 }
 
 const CustomerDashboard = () => {
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [contracts, setContracts] = useState([]);
@@ -85,6 +92,8 @@ const CustomerDashboard = () => {
   const [requests, setRequests] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailData, setDetailData] = useState(null);
   const [userProfile, setUserProfile] = useState({
     first_name: "",
     last_name: "",
@@ -301,6 +310,24 @@ const CustomerDashboard = () => {
       .join(" ");
   };
 
+  const handleViewRequestDetail = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await api.get(`/connection-requests/${id}/`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setDetailData(response.data);
+      setDetailDialogOpen(true);
+    } catch (err) {
+      setError(err.message || "Failed to load connection request details");
+      setLoading(false);
+    }
+  };
+
   const downloadContractPDF = async (contractId) => {
     try {
       const token = localStorage.getItem("token");
@@ -511,9 +538,6 @@ const CustomerDashboard = () => {
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               Network Provider Customer Portal
             </Typography>
-            <IconButton color="inherit">
-              <NotificationsIcon />
-            </IconButton>
             <IconButton color="inherit" onClick={handleLogout}>
               <LogoutIcon />
             </IconButton>
@@ -910,9 +934,13 @@ const CustomerDashboard = () => {
                         {contracts.map((contract) => (
                           <TableRow key={contract.id}>
                             <TableCell>#{contract.id}</TableCell>
-                            <TableCell>{contract.service.name}</TableCell>
                             <TableCell>
-                              {contract.tariff ? contract.tariff.name : "N/A"}
+                              {contract.service_details.name}
+                            </TableCell>
+                            <TableCell>
+                              {contract.tariff
+                                ? contract.tariff_details.name
+                                : "N/A"}
                             </TableCell>
                             <TableCell>
                               {new Date(
@@ -1048,7 +1076,6 @@ const CustomerDashboard = () => {
                       <TableHead>
                         <TableRow>
                           <TableCell>Payment #</TableCell>
-                          <TableCell>Invoice</TableCell>
                           <TableCell>Amount</TableCell>
                           <TableCell>Date</TableCell>
                           <TableCell>Method</TableCell>
@@ -1059,14 +1086,13 @@ const CustomerDashboard = () => {
                         {payments.map((payment) => (
                           <TableRow key={payment.id}>
                             <TableCell>#{payment.id}</TableCell>
-                            <TableCell>#{payment.invoice}</TableCell>
                             <TableCell>${payment.amount}</TableCell>
                             <TableCell>
                               {new Date(
                                 payment.payment_date
                               ).toLocaleDateString()}
                             </TableCell>
-                            <TableCell>{payment.payment_method}</TableCell>
+                            <TableCell>{payment.method_name}</TableCell>
                             <TableCell>
                               <IconButton
                                 color="primary"
@@ -1115,7 +1141,6 @@ const CustomerDashboard = () => {
                           <TableCell>Created</TableCell>
                           <TableCell>Last Updated</TableCell>
                           <TableCell>Status</TableCell>
-                          <TableCell>Actions</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1138,16 +1163,6 @@ const CustomerDashboard = () => {
                                 )}
                                 size="small"
                               />
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="small"
-                                onClick={() =>
-                                  navigateTo(`/support/ticket/${ticket.id}`)
-                                }
-                              >
-                                View Details
-                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1184,7 +1199,7 @@ const CustomerDashboard = () => {
                         <TableRow>
                           <TableCell>Request #</TableCell>
                           <TableCell>Address</TableCell>
-                          <TableCell>Service Type</TableCell>
+                          <TableCell>Tariff</TableCell>
                           <TableCell>Requested On</TableCell>
                           <TableCell>Status</TableCell>
                           <TableCell>Actions</TableCell>
@@ -1194,8 +1209,14 @@ const CustomerDashboard = () => {
                         {requests.map((request) => (
                           <TableRow key={request.id}>
                             <TableCell>#{request.id}</TableCell>
-                            <TableCell>{request.address}</TableCell>
-                            <TableCell>{request.service_type}</TableCell>
+                            <TableCell>
+                              {request.address_details.region_name},{" "}
+                              {request.address_details.city},{" "}
+                              {request.address_details.street},{" "}
+                              {request.address_details.building}/
+                              {request.address_details.apartment || " "},
+                            </TableCell>
+                            <TableCell>{request.tariff_details.name}</TableCell>
                             <TableCell>
                               {new Date(
                                 request.created_at
@@ -1203,7 +1224,7 @@ const CustomerDashboard = () => {
                             </TableCell>
                             <TableCell>
                               <Chip
-                                label={formatStatusText(request.status)}
+                                label={formatStatusText(request.status_name)}
                                 color={getStatusChipColor(
                                   request.status,
                                   "request"
@@ -1215,9 +1236,7 @@ const CustomerDashboard = () => {
                               <Button
                                 size="small"
                                 onClick={() =>
-                                  navigateTo(
-                                    `/connection-request/${request.id}`
-                                  )
+                                  handleViewRequestDetail(request.id)
                                 }
                               >
                                 View Details
@@ -1238,6 +1257,111 @@ const CustomerDashboard = () => {
           </TabPanel>
         </Box>
       </Box>
+
+      <Dialog
+        open={detailDialogOpen}
+        onClose={() => setDetailDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Connection Request Details
+          <IconButton
+            aria-label="close"
+            onClick={() => setDetailDialogOpen(false)}
+            sx={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <CancelIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {detailData ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography variant="h6">Request #{detailData.id}</Typography>
+                <Chip
+                  label={formatStatusText(detailData.status_name)}
+                  color={getStatusChipColor(detailData.status, "request")}
+                  sx={{ ml: 1 }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Address Information
+                </Typography>
+                <Typography variant="body1">
+                  Region: {detailData.address_details.region_name}
+                </Typography>
+                <Typography variant="body1">
+                  City: {detailData.address_details.city}
+                </Typography>
+                <Typography variant="body1">
+                  Street: {detailData.address_details.street}
+                </Typography>
+                <Typography variant="body1">
+                  Building: {detailData.address_details.building}
+                </Typography>
+                <Typography variant="body1">
+                  Apartment: {detailData.address_details.apartment || "N/A"}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Connection Details
+                </Typography>
+                <Typography variant="body1">
+                  Tariff: {detailData.tariff_details.name}
+                </Typography>
+                <Typography variant="body1">
+                  Monthly Price: ${detailData.tariff_details.price}
+                </Typography>
+                <Typography variant="body1">
+                  Created: {new Date(detailData.created_at).toLocaleString()}
+                </Typography>
+                <Typography variant="body1">
+                  Last Updated:{" "}
+                  {new Date(detailData.updated_at).toLocaleString()}
+                </Typography>
+              </Grid>
+
+              {detailData.notes && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Additional Notes
+                  </Typography>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="body2">{detailData.notes}</Typography>
+                  </Paper>
+                </Grid>
+              )}
+
+              {detailData.status === "rejected" &&
+                detailData.rejection_reason && (
+                  <Grid item xs={12}>
+                    <Alert severity="error">
+                      <AlertTitle>Rejection Reason</AlertTitle>
+                      {detailData.rejection_reason}
+                    </Alert>
+                  </Grid>
+                )}
+            </Grid>
+          ) : (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailDialogOpen(false)}>Close</Button>
+          {detailData && detailData.status === "new" && (
+            <Button color="error" variant="outlined">
+              Cancel Request
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

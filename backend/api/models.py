@@ -67,6 +67,9 @@ class EmployeeRole(models.Model):
 
 class StatusContext(models.Model):
     context = models.CharField(max_length=50, unique=True)
+
+    class Meta:
+        db_table = 'api_statuscontext'
     
     def __str__(self):
         return self.context
@@ -82,6 +85,7 @@ class Status(models.Model):
         verbose_name_plural = "Statuses"
         # This ensures status names are unique per context
         unique_together = ['status', 'context']
+        db_table = 'api_status'
         
     @classmethod
     def get_statuses_by_context(cls, context_name):
@@ -267,23 +271,6 @@ class ConnectionRequest(models.Model, ContextAwareModelMixin):
             role='technician'
         )
         return assignment
-    
-    def mark_as_completed(self):
-        completed_status = Status.objects.get(status='Approved', context__context='ConnectionRequest')
-        self.status = completed_status
-        self.save()
-        
-        # Автоматично створюємо контракт після завершення підключення
-        if not Contract.objects.filter(connection_request=self).exists():
-            service = self.tariff.services.first()
-            Contract.objects.create(
-                customer=self.customer,
-                connection_request=self,
-                address=self.address,
-                tariff=self.tariff,
-                service=service,
-                start_date=now()
-            )
 
     def clean(self):
         """Validate that address belongs to the customer"""
@@ -344,26 +331,22 @@ class Contract(models.Model):
             raise ValueError("End date must be later than start date")
     
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
-
         if self.connection_request and not hasattr(self, 'address'):
             self.address = self.connection_request.address
-
         super().save(*args, **kwargs)
-        if is_new:
-            self.save()
-            
-            # Create first invoice
-            Invoice.objects.create(
-                contract=self,
-                amount=self.tariff.price,
-                due_date=now() + timedelta(days=30),
-                description=f"Monthly fee for {self.tariff.name}"
-            )
     
     def terminate(self):
-        self.end_date = now()
-        self.save()
+        """Terminate the contract by setting the end date to today."""
+        # Set the end date to today if it's currently None or in the future
+        today = now().date()
+        if self.end_date is None or self.end_date > today:
+            self.end_date = today
+            # Use update() directly on the queryset instead of save() to avoid issues
+            Contract.objects.filter(id=self.id).update(end_date=today)
+            # Refresh from DB to get the updated values
+            self.refresh_from_db()
+            return True
+        return False
 
     class Meta:
         indexes = [
@@ -510,15 +493,6 @@ class NetworkUsage(models.Model):
     class Meta:
         unique_together = ('contract', 'date')
 
-
-@receiver(post_save, sender=Contract)
-def initialize_network_usage(sender, instance, created, **kwargs):
-    if created:
-        # Create initial network usage record when contract is created
-        NetworkUsage.objects.create(
-            contract=instance,
-            date=instance.start_date.date()
-        )
 
 @receiver(post_migrate)
 def create_user_groups(sender, **kwargs):

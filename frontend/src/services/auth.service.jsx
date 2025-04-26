@@ -11,6 +11,9 @@ export const AuthService = {
     const response = await api.post("auth/token/", credentials);
     if (response.data.access) {
       localStorage.setItem("token", response.data.access);
+      if (response.data.refresh) {
+        localStorage.setItem("refreshToken", response.data.refresh);
+      }
       await AuthService.getCurrentUser();
     }
     return response.data;
