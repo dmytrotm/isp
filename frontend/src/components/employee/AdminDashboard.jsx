@@ -46,7 +46,7 @@ import {
   Avatar,
   TablePagination,
 } from "@mui/material";
-import { LogOut } from "lucide-react";
+import { LogOut, Home } from "lucide-react";
 import {
   Dashboard as DashboardIcon,
   AccountCircle as CustomerIcon,
@@ -644,12 +644,20 @@ const AdminDashboard = () => {
             Welcome, {adminProfile.first_name} {adminProfile.last_name}
           </Typography>
         </Box>
-        <button
-          onClick={handleLogout}
-          className="flex items-center text-gray-500 hover:text-gray-700"
-        >
-          <LogOut className="h-4 w-4 mr-1" /> Logout
-        </button>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center text-gray-500 hover:text-gray-700"
+          >
+            <Home className="h-4 w-4 mr-1" /> Home
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center text-gray-500 hover:text-gray-700"
+          >
+            <LogOut className="h-4 w-4 mr-1" /> Logout
+          </button>
+        </div>
       </Box>
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs

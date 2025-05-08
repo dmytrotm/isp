@@ -1,7 +1,26 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Paper,
+  Box,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  InputAdornment,
+} from "@mui/material";
+import { PaymentOutlined } from "@mui/icons-material";
 
 const Payment = () => {
+  const navigate = useNavigate();
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [amount, setAmount] = useState("");
   const [selectedMethod, setSelectedMethod] = useState("");
@@ -9,6 +28,7 @@ const Payment = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   useEffect(() => {
     const fetchPaymentMethods = async () => {
@@ -41,10 +61,8 @@ const Payment = () => {
       setError(null);
 
       // Make payment request to the backend
-      // Note: customer field is not required here as it will be set by the backend
-      // based on the authenticated user's customer profile
       const token = localStorage.getItem("token");
-      const response = await api.post(
+      await api.post(
         "/payments/",
         {
           amount: parseFloat(amount),
@@ -59,9 +77,15 @@ const Payment = () => {
 
       // Show success message
       setSuccess(true);
+      setOpenSnackbar(true);
       // Reset form
       setAmount("");
       setSelectedMethod("");
+
+      // Redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 2000);
     } catch (err) {
       console.error("Payment error:", err);
       setError(
@@ -72,79 +96,114 @@ const Payment = () => {
     }
   };
 
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
+  };
+
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Make a Payment</h1>
+    <Container maxWidth="sm">
+      <Paper elevation={3} sx={{ p: 4, mt: 4, borderRadius: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+          <PaymentOutlined
+            sx={{ fontSize: 28, mr: 2, color: "primary.main" }}
+          />
+          <Typography variant="h4" component="h1" fontWeight="500">
+            Make a Payment
+          </Typography>
+        </Box>
 
-      {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          Payment processed successfully! The payment has been applied to your
-          balance.
-        </div>
-      )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label htmlFor="amount" className="block mb-2">
-            Amount:
-          </label>
-          <input
-            type="number"
+        <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
             id="amount"
+            label="Amount"
+            variant="outlined"
+            type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full p-2 border rounded"
             required
-            min="0.01"
-            step="0.01"
+            inputProps={{ min: "0.01", step: "0.01" }}
+            sx={{ mb: 3 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">$</InputAdornment>
+              ),
+            }}
           />
-        </div>
 
-        <div className="mb-4">
-          <label htmlFor="method" className="block mb-2">
-            Payment Method:
-          </label>
-          {loading ? (
-            <select id="method" className="w-full p-2 border rounded" disabled>
-              <option>Loading payment methods...</option>
-            </select>
-          ) : (
-            <select
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel id="payment-method-label">Payment Method</InputLabel>
+            <Select
+              labelId="payment-method-label"
               id="method"
               value={selectedMethod}
               onChange={(e) => setSelectedMethod(e.target.value)}
-              className="w-full p-2 border rounded"
+              label="Payment Method"
+              disabled={loading}
               required
             >
-              <option value="">Select a payment method</option>
+              <MenuItem value="" disabled>
+                {loading
+                  ? "Loading payment methods..."
+                  : "Select a payment method"}
+              </MenuItem>
               {paymentMethods.map((method) => (
-                <option key={method.id} value={method.id}>
+                <MenuItem key={method.id} value={method.id}>
                   {method.method}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          )}
-        </div>
+            </Select>
+          </FormControl>
 
-        <button
-          type="submit"
-          className={`bg-blue-500 text-white py-2 px-4 rounded ${
-            submitting || loading
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:bg-blue-600"
-          }`}
-          disabled={submitting || loading}
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            size="large"
+            disabled={submitting || loading}
+            sx={{
+              py: 1.5,
+              fontSize: "1rem",
+              backgroundColor: "primary.main",
+              "&:hover": {
+                backgroundColor: "primary.dark",
+              },
+            }}
+          >
+            {submitting ? (
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <CircularProgress size={24} sx={{ mr: 1, color: "white" }} />
+                Processing...
+              </Box>
+            ) : (
+              "Pay Now"
+            )}
+          </Button>
+        </form>
+      </Paper>
+
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={2000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
         >
-          {submitting ? "Processing..." : "Pay Now"}
-        </button>
-      </form>
-    </div>
+          Payment successful! Redirecting to dashboard...
+        </Alert>
+      </Snackbar>
+    </Container>
   );
 };
 

@@ -86,6 +86,11 @@ class Command(BaseCommand):
         for role_name in roles:
             EmployeeRole.objects.get_or_create(name=role_name)
         
+        # Create Django user groups for permissions
+        groups = ['Admin', 'Manager', 'Support', 'Technician', 'Customer']
+        for group_name in groups:
+            Group.objects.get_or_create(name=group_name)
+        
         # Create status contexts
         contexts = ['ConnectionRequest', 'SupportTicket', 'Customer']
         for context_name in contexts:
@@ -93,7 +98,7 @@ class Command(BaseCommand):
         
         # Create statuses for each context
         connection_context = StatusContext.objects.get(context='ConnectionRequest')
-        connection_statuses = ['New', 'Approved', 'Denied']
+        connection_statuses = ['New', 'Approved', 'Denied', 'Completed']  # Added 'Completed' status
         for status in connection_statuses:
             Status.objects.get_or_create(status=status, context=connection_context)
         
@@ -202,6 +207,12 @@ class Command(BaseCommand):
         
         fake = Faker('uk_UA')
         
+        # Get Django groups
+        admin_group = Group.objects.get(name='Admin')
+        manager_group = Group.objects.get(name='Manager')
+        support_group = Group.objects.get(name='Support')
+        technician_group = Group.objects.get(name='Technician')
+        
         # Create admin user if it doesn't exist
         admin_email = 'admin@example.com'
         admin_user, created = User.objects.get_or_create(
@@ -217,13 +228,60 @@ class Command(BaseCommand):
         
         if created:
             admin_user.set_password('adminpassword')
+            admin_user.groups.add(admin_group)
             admin_user.save()
             admin_role = EmployeeRole.objects.get(name='Admin')
             Employee.objects.create(user=admin_user, role=admin_role)
             self.stdout.write(self.style.SUCCESS('Created admin user with email: admin@example.com and password: adminpassword'))
         
-        # Create staff members
-        roles = list(EmployeeRole.objects.exclude(name='Admin'))
+        # Create a specific manager user
+        manager_email = 'manager@example.com'
+        manager_user, created = User.objects.get_or_create(
+            email=manager_email,
+            defaults={
+                'first_name': 'Manager',
+                'last_name': 'User',
+                'is_active': True,
+                'is_staff': True
+            }
+        )
+        
+        if created:
+            manager_user.set_password('password123')
+            manager_user.groups.add(manager_group)
+            manager_user.save()
+            manager_role = EmployeeRole.objects.get(name='Manager')
+            Employee.objects.create(user=manager_user, role=manager_role)
+            self.stdout.write(self.style.SUCCESS('Created manager user with email: manager@example.com and password: password123'))
+        
+        # Create a specific support user
+        support_email = 'support@example.com'
+        support_user, created = User.objects.get_or_create(
+            email=support_email,
+            defaults={
+                'first_name': 'Support',
+                'last_name': 'User',
+                'is_active': True,
+                'is_staff': True
+            }
+        )
+        
+        if created:
+            support_user.set_password('password123')
+            support_user.groups.add(support_group)
+            support_user.save()
+            support_role = EmployeeRole.objects.get(name='Support')
+            Employee.objects.create(user=support_user, role=support_role)
+            self.stdout.write(self.style.SUCCESS('Created support user with email: support@example.com and password: password123'))
+        
+        # Create additional staff members
+        roles = list(EmployeeRole.objects.all())
+        groups_map = {
+            'Admin': admin_group,
+            'Manager': manager_group,
+            'Support': support_group,
+            'Technician': technician_group
+        }
         
         for i in range(num_staff):
             first_name = fake.first_name()
@@ -243,9 +301,13 @@ class Command(BaseCommand):
                 
                 if created:
                     user.set_password('password123')
-                    user.save()
-                    
                     role = random.choice(roles)
+                    
+                    # Add user to the appropriate group based on role
+                    if role.name in groups_map:
+                        user.groups.add(groups_map[role.name])
+                    
+                    user.save()
                     Employee.objects.create(user=user, role=role)
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Error creating staff {email}: {str(e)}"))
@@ -259,7 +321,58 @@ class Command(BaseCommand):
         fake = Faker('uk_UA')
         customer_status = Status.objects.get(status='Active', context__context='Customer')
         regions = list(Region.objects.all())
+        customer_group = Group.objects.get(name='Customer')
         
+        # Create one specific customer with a known email
+        first_name = 'Customer'
+        last_name = 'User'
+        email = 'customer@example.com'
+        
+        try:
+            # Create specific customer user
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'is_active': True,
+                    'is_staff': False
+                }
+            )
+            
+            if created:
+                user.set_password('password123')
+                user.groups.add(customer_group)
+                user.save()
+                
+                # Generate valid Ukrainian phone number in the required format
+                phone_number = "+380" + ''.join([str(random.randint(0, 9)) for _ in range(9)])
+                
+                # Create customer profile
+                customer = Customer.objects.create(
+                    user=user,
+                    status=customer_status,
+                    phone_number=phone_number,
+                    balance=Decimal(str(random.randint(0, 2000))),
+                    preferred_notification=random.choice(['email', 'sms'])
+                )
+                
+                # Create 1-2 addresses for this customer
+                for _ in range(random.randint(1, 2)):
+                    Address.objects.create(
+                        apartment=str(random.randint(1, 200)),
+                        building=str(random.randint(1, 100)),
+                        street=fake.street_name(),
+                        city=fake.city(),
+                        region=random.choice(regions),
+                        customer=customer
+                    )
+                
+                self.stdout.write(self.style.SUCCESS('Created customer user with email: customer@example.com and password: password123'))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error creating specific customer: {str(e)}"))
+        
+        # Now create random customers
         for i in range(num_customers):
             first_name = fake.first_name()
             last_name = fake.last_name()
@@ -282,6 +395,7 @@ class Command(BaseCommand):
                 
                 if created:
                     user.set_password('password123')
+                    user.groups.add(customer_group)  # Add to Customer group
                     user.save()
                 
                 # Create customer profile
@@ -365,14 +479,24 @@ class Command(BaseCommand):
         """Create contracts for completed connection requests"""
         self.stdout.write(self.style.NOTICE(f'Creating contracts for {percentage_of_requests}% of connection requests...'))
         
-        # Get completed connection requests
+        # Get completed connection requests that don't already have contracts
         completed_status = Status.objects.get(status='Completed', context__context='ConnectionRequest')
-        all_requests = ConnectionRequest.objects.filter(status=completed_status)
+        
+        # Find connection requests that don't already have associated contracts
+        existing_contract_requests = Contract.objects.values_list('connection_request_id', flat=True)
+        available_requests = ConnectionRequest.objects.filter(
+            status=completed_status
+        ).exclude(
+            id__in=existing_contract_requests
+        )
         
         # Calculate how many contracts to create
-        num_contracts = int(len(all_requests) * (percentage_of_requests / 100))
-        requests_for_contracts = random.sample(list(all_requests), min(num_contracts, len(all_requests)))
-        
+        num_contracts = int(len(available_requests) * (percentage_of_requests / 100))
+        if not available_requests:
+            self.stdout.write(self.style.WARNING('No available connection requests to create contracts'))
+            return
+            
+        requests_for_contracts = random.sample(list(available_requests), min(num_contracts, len(available_requests)))
         equipment_items = list(Equipment.objects.filter(stock_quantity__gt=0))
         
         count = 0
@@ -386,35 +510,50 @@ class Command(BaseCommand):
                     
                 service = random.choice(tariff_services)
                 
-                contract = Contract.objects.create(
-                    customer=request.customer,
-                    connection_request=request,
-                    address=request.address,
-                    service=service,
-                    tariff=request.tariff,
-                    start_date=now() - timedelta(days=random.randint(1, 90)),
-                    end_date=now() + timedelta(days=random.randint(180, 365))
-                )
+                # Check if a contract already exists for this request (double-check)
+                if Contract.objects.filter(connection_request_id=request.id).exists():
+                    self.stdout.write(self.style.WARNING(f"Contract already exists for request {request.id}, skipping"))
+                    continue
                 
-                # Assign equipment if available
-                if equipment_items and random.random() > 0.3:  # 70% chance to have equipment
-                    num_equipment = random.randint(1, min(2, len(equipment_items)))
-                    for equip in random.sample(equipment_items, num_equipment):
-                        if equip.stock_quantity > 0:
-                            try:
+                # Use a database transaction to ensure all operations succeed or fail together
+                from django.db import transaction
+                
+                with transaction.atomic():
+                    # Create the contract
+                    contract = Contract.objects.create(
+                        customer=request.customer,
+                        connection_request=request,
+                        address=request.address,
+                        service=service,
+                        tariff=request.tariff,
+                        start_date=now() - timedelta(days=random.randint(1, 90)),
+                        end_date=now() + timedelta(days=random.randint(180, 365))
+                    )
+                    
+                    # Only proceed with equipment assignment if contract was successfully created
+                    # and there are equipment items available
+                    if equipment_items and random.random() > 0.3:
+                        num_equipment = random.randint(1, min(2, len(equipment_items)))
+                        selected_equipment = random.sample(equipment_items, num_equipment)
+                        
+                        for equip in selected_equipment:
+                            if equip.stock_quantity > 0:
                                 ContractEquipment.objects.create(
                                     contract=contract,
                                     equipment=equip,
                                     is_active=True
                                 )
-                            except ValueError:
-                                self.stdout.write(self.style.WARNING(f"Not enough {equip.name} in stock"))
-                count += 1
+                                # Reduce stock quantity
+                                equip.stock_quantity -= 1
+                                equip.save()
+                    
+                    count += 1
+                    
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"Error creating contract for request {request.id}: {str(e)}"))
         
         self.stdout.write(self.style.SUCCESS(f'Created {count} contracts.'))
-
+       
     def create_support_tickets(self, num_tickets):
         """Create support tickets"""
         self.stdout.write(self.style.NOTICE(f'Creating {num_tickets} support tickets...'))

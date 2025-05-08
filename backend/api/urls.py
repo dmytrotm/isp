@@ -1,12 +1,10 @@
-from django.urls import path, include, re_path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .employee_view import EmployeeViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from debug_toolbar.toolbar import debug_toolbar_urls
 from .external import ExternalCustomerView
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-from rest_framework.permissions import IsAuthenticated
 from django.http import JsonResponse
 import json
 import os
@@ -41,7 +39,7 @@ router.register(r'equipment-categories', views.EquipmentCategoryViewSet)
 router.register(r'network-usage', views.NetworkUsageViewSet)
 router.register(r'users', views.UserViewSet)
 
-router.register(r'admin-dashboard', views.AdminViewSet, basename='admin-dashboard')
+router.register(r'admin-dashboard', EmployeeViewSet, basename='admin-dashboard')
 
 urlpatterns = [
     # Authentication views

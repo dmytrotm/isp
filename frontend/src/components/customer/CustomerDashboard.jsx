@@ -435,70 +435,29 @@ const CustomerDashboard = () => {
         <Toolbar />
         <Box sx={{ overflow: "auto", mt: 2 }}>
           <List>
-            <ListItem>
-              <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                Customer Portal
-              </Typography>
-            </ListItem>
-            <ListItem
-              button
-              selected={tabValue === 0}
-              onClick={() => setTabValue(0)}
-            >
+            <ListItem button onClick={() => navigateTo("/")}>
               <ListItemIcon>
                 <DashboardIcon />
               </ListItemIcon>
-              <ListItemText primary="Dashboard" />
+              <ListItemText primary="Main Page" />
             </ListItem>
-            <ListItem
-              button
-              selected={tabValue === 1}
-              onClick={() => setTabValue(1)}
-            >
-              <ListItemIcon>
-                <ArticleIcon />
-              </ListItemIcon>
-              <ListItemText primary="Contracts" />
-            </ListItem>
-            <ListItem
-              button
-              selected={tabValue === 2}
-              onClick={() => setTabValue(2)}
-            >
-              <ListItemIcon>
-                <ReceiptIcon />
-              </ListItemIcon>
-              <ListItemText primary="Invoices" />
-            </ListItem>
-            <ListItem
-              button
-              selected={tabValue === 3}
-              onClick={() => setTabValue(3)}
-            >
+            <ListItem button onClick={() => navigateTo("/make-payment")}>
               <ListItemIcon>
                 <PaymentIcon />
               </ListItemIcon>
-              <ListItemText primary="Payments" />
+              <ListItemText primary="Make Payment" />
             </ListItem>
-            <ListItem
-              button
-              selected={tabValue === 4}
-              onClick={() => setTabValue(4)}
-            >
+            <ListItem button onClick={() => navigateTo("/support/new")}>
               <ListItemIcon>
-                <SupportIcon />
+                <HelpOutlineIcon />
               </ListItemIcon>
-              <ListItemText primary="Support Tickets" />
+              <ListItemText primary="New Support Ticket" />
             </ListItem>
-            <ListItem
-              button
-              selected={tabValue === 5}
-              onClick={() => setTabValue(5)}
-            >
+            <ListItem button onClick={handleLogout}>
               <ListItemIcon>
-                <PowerIcon />
+                <LogoutIcon />
               </ListItemIcon>
-              <ListItemText primary="Connection Requests" />
+              <ListItemText primary="Logout" />
             </ListItem>
           </List>
           <Divider />
