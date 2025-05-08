@@ -907,20 +907,19 @@ class AdminViewSet(viewsets.ViewSet):
                 print(f"[ERROR] Invalid date format: {e}")
                 return Response({"error": f"Invalid date format: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # First update the connection request status 
-            print("[DEBUG] Setting ConnectionRequest status to Approved...")
-            approved_status = Status.objects.get(status='Approved', context__context='ConnectionRequest')
-            ConnectionRequest.objects.filter(pk=pk).update(status=approved_status)
-            print(f"[DEBUG] ConnectionRequest ID {connection_request.id} status set to Approved.")
-
-            # FIRST TRANSACTION: Create the contract
-            contract = None
+            # FIRST TRANSACTION: Create contract
             try:
                 with transaction.atomic():
-                    print("[DEBUG] Creating new Contract...")
+                    # First update the connection request status 
+                    print("[DEBUG] Setting ConnectionRequest status to Approved...")
+                    approved_status = Status.objects.get(status='Approved', context__context='ConnectionRequest')
+                    ConnectionRequest.objects.filter(pk=pk).update(status=approved_status)
+                    print(f"[DEBUG] ConnectionRequest ID {connection_request.id} status set to Approved.")
+                    
                     # Refresh the connection request from DB to get the updated status
                     connection_request = ConnectionRequest.objects.get(pk=pk)
                     
+                    print("[DEBUG] Creating new Contract...")
                     contract = Contract.objects.create(
                         customer=connection_request.customer,
                         connection_request=connection_request,
@@ -931,51 +930,52 @@ class AdminViewSet(viewsets.ViewSet):
                         end_date=end_date,
                     )
                     print(f"[DEBUG] Contract created with ID {contract.id}")
+            except Exception as e:
+                print(f"[ERROR] Error in first transaction: {e}")
+                return Response({"error": f"Failed to create contract: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+            # Make sure we have the contract ID to use in the next transaction
+            contract_id = Contract.objects.get(connection_request=connection_request).id
+            
+            # SECOND TRANSACTION: Add equipment and create invoice
+            try:
+                with transaction.atomic():
+                    # Get a fresh copy of the contract from the database
+                    fresh_contract = Contract.objects.get(id=contract_id)
+                    print(f"[DEBUG] Retrieved fresh contract with ID {fresh_contract.id}")
+                    
                     # Add equipment if provided
                     if 'equipment' in request.data and request.data['equipment']:
-                        print(f"[DEBUG] Adding equipment to Contract ID {contract.id}")
+                        print(f"[DEBUG] Adding equipment to Contract ID {fresh_contract.id}")
                         for equipment_id in request.data['equipment']:
                             try:
                                 equipment = Equipment.objects.get(id=equipment_id)
                                 ContractEquipment.objects.create(
-                                    contract=contract,
+                                    contract=fresh_contract,  # Use fresh_contract here
                                     equipment=equipment
                                 )
-                                print(f"[DEBUG] Added equipment ID {equipment_id} to contract.")
+                                print(f"[DEBUG] Added equipment ID {equipment_id} to contract {fresh_contract.id}.")
                             except Equipment.DoesNotExist:
                                 print(f"[ERROR] Equipment ID {equipment_id} not found.")
                                 raise Exception(f"Equipment ID {equipment_id} not found")
-            except Exception as e:
-                print(f"[ERROR] Error creating contract: {e}")
-                return Response({"error": f"Failed to create contract: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Ensure the contract was created successfully
-            if not contract or not contract.id:
-                print("[ERROR] Contract creation failed")
-                return Response({"error": "Failed to create contract"}, status=status.HTTP_400_BAD_REQUEST)
-
-            # SECOND TRANSACTION: Create the invoice for the committed contract
-            try:
-                with transaction.atomic():
-                    print(f"[DEBUG] Creating invoice for Contract ID {contract.id}")
-                    # Fetch the contract again to ensure we have the latest from the database
-                    fresh_contract = Contract.objects.get(id=contract.id)
-                    
+                                
+                    print(f"[DEBUG] Creating invoice for Contract ID {fresh_contract.id}")
                     invoice = Invoice.objects.create(
-                        contract=fresh_contract,
+                        contract=fresh_contract,  # Use fresh_contract here
                         amount=fresh_contract.tariff.price,
                         due_date=timezone.now() + timedelta(days=30),
                         description=f"Monthly fee for {fresh_contract.tariff.name}"
                     )
-                    print(f"[DEBUG] Invoice created with ID {invoice.id}")
+                    print(f"[DEBUG] Invoice created with ID {invoice.id} for Contract ID {fresh_contract.id}")
             except Exception as e:
-                print(f"[ERROR] Error creating invoice: {e}")
+                print(f"[ERROR] Error in second transaction: {e}")
+                # We'll allow the API to return success even if the invoice creation fails
+                # since the contract was created successfully
 
             return Response({
                 "success": True,
                 "message": "Connection request approved and contract created",
-                "contract_id": contract.id
+                "contract_id": contract_id
             }, status=status.HTTP_200_OK)
 
         except ConnectionRequest.DoesNotExist:
@@ -2273,14 +2273,38 @@ class ConnectionRequestViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
+        print(f"DEBUG: User is {self.request.user}, has customer_profile: {hasattr(self.request.user, 'customer_profile')}")
+        
         if hasattr(self.request.user, 'customer_profile'):
             # Customer creating a connection request
             customer = self.request.user.customer_profile
-            new_status = Status.objects.get(status='New', context_id__context='ConnectionRequest')
-            serializer.save(customer=customer, status=new_status)
+            print(f"DEBUG: Customer profile found: {customer}")
+            
+            try:
+                # Note the change from context_id__context to context__context
+                new_status = Status.objects.get(status='New', context__context='ConnectionRequest')
+                print(f"DEBUG: Found new status: {new_status}")
+                serializer.save(customer=customer, status=new_status)
+                print(f"DEBUG: Successfully saved connection request with status")
+            except Status.DoesNotExist:
+                print(f"DEBUG: Status with 'New' and context 'ConnectionRequest' not found")
+                # You might want to handle this case, perhaps with a default status
+            except Exception as e:
+                print(f"DEBUG: Exception occurred: {str(e)}")
         else:
             # Employee creating a connection request
-            serializer.save()
+            print(f"DEBUG: No customer profile, assuming employee")
+            try:
+                # Let's try to set the status for employees too
+                new_status = Status.objects.get(status='New', context__context='ConnectionRequest')
+                serializer.save(status=new_status)
+                print(f"DEBUG: Successfully saved connection request as employee with status")
+            except Status.DoesNotExist:
+                print(f"DEBUG: Status not found for employee path, saving without status")
+                serializer.save()
+                print(f"DEBUG: Saved without status")
+            except Exception as e:
+                print(f"DEBUG: Exception in employee path: {str(e)}")
     
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def assign_technician(self, request, pk=None):

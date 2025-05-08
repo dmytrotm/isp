@@ -247,10 +247,20 @@ class TariffService(models.Model):
     class Meta:
         unique_together = ('tariff', 'service')
 
+def get_default_connection_request_status():
+    return Status.objects.get_or_create(
+        status='New', 
+        context__context='ConnectionRequest'
+    )[0].id
+
 class ConnectionRequest(models.Model, ContextAwareModelMixin):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     employees = models.ManyToManyField(Employee, through='ConnectionRequestAssignment')
-    status = models.ForeignKey(Status, on_delete=models.CASCADE)
+    status = models.ForeignKey(
+        Status, 
+        on_delete=models.CASCADE,
+        default=get_default_connection_request_status
+    )
     created_at = models.DateTimeField(auto_now_add=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True, editable=False)
     address = models.ForeignKey(Address, on_delete=models.PROTECT, null=True, blank=True)
