@@ -130,7 +130,8 @@ export default function Homelanding() {
       const fetchTariffs = async () => {
         try {
           const response = await api.get(
-            `/tariffs/by_service?service_id=${selectedService}`
+            `/tariffs/by_service/?service_id=${selectedService}`
+
           );
           // Filter only active tariffs
           const activeTariffs = response.data.filter(

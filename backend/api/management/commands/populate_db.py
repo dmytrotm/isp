@@ -5,6 +5,8 @@ from django.core.management.base import BaseCommand
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from faker import Faker
+from django.db import connection
+
 
 from django.contrib.auth.models import Group
 from api.models import (
@@ -16,8 +18,6 @@ from api.models import (
 
 # Initialize Faker
 fake = Faker('uk_UA')  # Ukrainian locale, adjust as needed
-Faker.seed(12345)  # For reproducibility
-
 
 class Command(BaseCommand):
     help = 'Populates the database with sample data for testing'
@@ -52,28 +52,50 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Successfully populated the database with sample data!'))
     
     def clear_data(self):
-        """Clear existing data from the database"""
+        """Clear all data by truncating tables with proper constraints handling"""
         self.stdout.write(self.style.WARNING('Clearing existing data...'))
         
-        # Clear data in reverse order of dependencies
-        NetworkUsage.objects.all().delete()
-        Payment.objects.all().delete()
-        Invoice.objects.all().delete()
-        SupportTicket.objects.all().delete()
-        ContractEquipment.objects.all().delete()
-        Contract.objects.all().delete()
-        ConnectionRequestAssignment.objects.all().delete()
-        ConnectionRequest.objects.all().delete()
-        Address.objects.all().delete()
-        Customer.objects.all().delete()
-        Employee.objects.all().delete()
-        TariffService.objects.all().delete()
-        Tariff.objects.all().delete()
-        Service.objects.all().delete()
-        Equipment.objects.all().delete()
+        # Get the database cursor
+        cursor = connection.cursor()
         
-        # Keep users for now since they might be referenced elsewhere
-        # User.objects.filter(is_superuser=False).delete()
+        # For SQL Server specifically, disable constraint checking temporarily
+        try:
+            cursor.execute("EXEC sp_MSforeachtable @command1='DISABLE TRIGGER ALL ON ?'")
+            cursor.execute("EXEC sp_MSforeachtable @command1='ALTER TABLE ? NOCHECK CONSTRAINT ALL'")
+            
+            # Truncate all tables in reverse dependency order
+            tables = [
+                'api_networkusage',
+                'api_payment',
+                'api_invoice',
+                'api_supportticket',
+                'api_contractequipment',
+                'api_contract',
+                'api_connectionrequestassignment',
+                'api_connectionrequest',
+                'api_address',
+                'api_customer',
+                'api_employee',
+                'api_tariffservice',
+                'api_tariff',
+                'api_service',
+                'api_equipment',
+                # Skip Django system tables like auth_user, etc.
+            ]
+            
+            for table in tables:
+                try:
+                    cursor.execute(f"IF OBJECT_ID('{table}', 'U') IS NOT NULL TRUNCATE TABLE {table}")
+                    self.stdout.write(self.style.SUCCESS(f"Cleared {table}"))
+                except Exception as e:
+                    self.stdout.write(self.style.WARNING(f"Error clearing {table}: {e}"))
+            
+            # Re-enable constraints
+            cursor.execute("EXEC sp_MSforeachtable @command1='ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL'")
+            cursor.execute("EXEC sp_MSforeachtable @command1='ENABLE TRIGGER ALL ON ?'")
+            
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error during database clearing: {e}"))
         
         self.stdout.write(self.style.SUCCESS('Data cleared successfully.'))
 
@@ -82,12 +104,12 @@ class Command(BaseCommand):
         self.stdout.write(self.style.NOTICE('Creating initial data...'))
         
         # Create employee roles
-        roles = ['Admin', 'Manager', 'Support', 'Technician']
+        roles = ['admin', 'manager', 'support', 'technician']
         for role_name in roles:
             EmployeeRole.objects.get_or_create(name=role_name)
         
         # Create Django user groups for permissions
-        groups = ['Admin', 'Manager', 'Support', 'Technician', 'Customer']
+        groups = ['admin', 'manager', 'support', 'technician', 'customer']
         for group_name in groups:
             Group.objects.get_or_create(name=group_name)
         
@@ -98,7 +120,7 @@ class Command(BaseCommand):
         
         # Create statuses for each context
         connection_context = StatusContext.objects.get(context='ConnectionRequest')
-        connection_statuses = ['New', 'Approved', 'Denied', 'Completed']  # Added 'Completed' status
+        connection_statuses = ['New', 'Approved', 'Denied', 'Completed']  
         for status in connection_statuses:
             Status.objects.get_or_create(status=status, context=connection_context)
         
@@ -208,10 +230,10 @@ class Command(BaseCommand):
         fake = Faker('uk_UA')
         
         # Get Django groups
-        admin_group = Group.objects.get(name='Admin')
-        manager_group = Group.objects.get(name='Manager')
-        support_group = Group.objects.get(name='Support')
-        technician_group = Group.objects.get(name='Technician')
+        admin_group = Group.objects.get(name='admin')
+        manager_group = Group.objects.get(name='manager')
+        support_group = Group.objects.get(name='support')
+        technician_group = Group.objects.get(name='technician')
         
         # Create admin user if it doesn't exist
         admin_email = 'admin@example.com'
@@ -230,7 +252,7 @@ class Command(BaseCommand):
             admin_user.set_password('adminpassword')
             admin_user.groups.add(admin_group)
             admin_user.save()
-            admin_role = EmployeeRole.objects.get(name='Admin')
+            admin_role = EmployeeRole.objects.get(name='admin')
             Employee.objects.create(user=admin_user, role=admin_role)
             self.stdout.write(self.style.SUCCESS('Created admin user with email: admin@example.com and password: adminpassword'))
         
@@ -239,7 +261,7 @@ class Command(BaseCommand):
         manager_user, created = User.objects.get_or_create(
             email=manager_email,
             defaults={
-                'first_name': 'Manager',
+                'first_name': 'manager',
                 'last_name': 'User',
                 'is_active': True,
                 'is_staff': True
@@ -250,7 +272,7 @@ class Command(BaseCommand):
             manager_user.set_password('password123')
             manager_user.groups.add(manager_group)
             manager_user.save()
-            manager_role = EmployeeRole.objects.get(name='Manager')
+            manager_role = EmployeeRole.objects.get(name='manager')
             Employee.objects.create(user=manager_user, role=manager_role)
             self.stdout.write(self.style.SUCCESS('Created manager user with email: manager@example.com and password: password123'))
         
@@ -259,7 +281,7 @@ class Command(BaseCommand):
         support_user, created = User.objects.get_or_create(
             email=support_email,
             defaults={
-                'first_name': 'Support',
+                'first_name': 'support',
                 'last_name': 'User',
                 'is_active': True,
                 'is_staff': True
@@ -270,17 +292,37 @@ class Command(BaseCommand):
             support_user.set_password('password123')
             support_user.groups.add(support_group)
             support_user.save()
-            support_role = EmployeeRole.objects.get(name='Support')
+            support_role = EmployeeRole.objects.get(name='support')
             Employee.objects.create(user=support_user, role=support_role)
             self.stdout.write(self.style.SUCCESS('Created support user with email: support@example.com and password: password123'))
+
+        # Create a specific technician user
+        technician_email = 'technician@example.com'
+        technician_user, created = User.objects.get_or_create(
+            email=technician_email,
+            defaults={
+                'first_name': 'Technician',
+                'last_name': 'User',
+                'is_active': True,
+                'is_staff': True
+            }
+        )
+
+        if created:
+            technician_user.set_password('password123')
+            technician_user.groups.add(technician_group)
+            technician_user.save()
+            technician_role = EmployeeRole.objects.get(name='technician')
+            Employee.objects.create(user=technician_user, role=technician_role)
+            self.stdout.write(self.style.SUCCESS('Created technician user with email: technician@example.com and password: password123'))
         
         # Create additional staff members
         roles = list(EmployeeRole.objects.all())
         groups_map = {
-            'Admin': admin_group,
-            'Manager': manager_group,
-            'Support': support_group,
-            'Technician': technician_group
+            'admin': admin_group,
+            'manager': manager_group,
+            'support': support_group,
+            'technician': technician_group
         }
         
         for i in range(num_staff):
@@ -432,7 +474,7 @@ class Command(BaseCommand):
         customers = list(Customer.objects.all())
         statuses = list(Status.objects.filter(context__context='ConnectionRequest'))
         tariffs = list(Tariff.objects.filter(is_active=True))
-        technicians = list(Employee.objects.filter(role__name='Technician'))
+        technicians = list(Employee.objects.filter(role__name='technician'))
         
         count = 0
         for _ in range(num_requests):

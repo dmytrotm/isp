@@ -54,10 +54,10 @@ const App = () => {
       <Router>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<Homelanding />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/debug/api-test" element={<ApiTester />} />
-          <Route path="/" element={<Homelanding />} />
 
           {/* Authenticated routes */}
           <Route path="/dashboard" element={<DashboardRouter />} />

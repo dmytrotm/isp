@@ -51,7 +51,7 @@ export const AuthService = {
       user &&
       user.is_employee &&
       user.employee &&
-      user.employee.role === "Manager"
+      user.employee.role === "manager"
     );
   },
 

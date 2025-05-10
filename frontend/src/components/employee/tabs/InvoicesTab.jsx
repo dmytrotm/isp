@@ -397,24 +397,6 @@ const InvoicesTab = () => {
           )}
         </DialogContent>
         <DialogActions>
-          {selectedInvoice && selectedInvoice.status !== "paid" && (
-            <>
-              <Button
-                onClick={() => handleMarkAsPaid(selectedInvoice.id)}
-                color="success"
-                disabled={loadingDetails}
-              >
-                Mark as Paid
-              </Button>
-              <Button
-                onClick={() => handleSendReminder(selectedInvoice.id)}
-                color="primary"
-                disabled={loadingDetails}
-              >
-                Send Reminder
-              </Button>
-            </>
-          )}
           <Button onClick={handleCloseDetail} color="primary">
             Close
           </Button>
