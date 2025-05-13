@@ -130,7 +130,7 @@ class Command(BaseCommand):
             Status.objects.get_or_create(status=status, context=support_context)
         
         customer_context = StatusContext.objects.get(context='Customer')
-        customer_statuses = ['Active', 'Inactive', 'Blocked']
+        customer_statuses = ['Active', 'Inactive', 'Blocked', 'New']
         for status in customer_statuses:
             Status.objects.get_or_create(status=status, context=customer_context)
         

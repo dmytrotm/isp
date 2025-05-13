@@ -110,6 +110,44 @@ class CustomerViewSet(viewsets.ModelViewSet):
             return CustomerCreateSerializer
         return CustomerSerializer
 
+    def create(self, request, *args, **kwargs):
+        # Get the default status
+        default_status = Status.objects.get(status='New', context__context='Customer')
+        
+        # Create a mutable copy of request.data
+        data = request.data.copy() if hasattr(request.data, 'copy') else request.data
+        
+        # Set status if not provided
+        if 'status' not in data:
+            data['status'] = default_status.id
+        
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        
+    def perform_create(self, serializer):
+        # Get the default "New" status for Customer context
+        try:
+            default_status = Status.objects.get(status='New', context__context='Customer')
+            print(f"Found default status: {default_status}")
+        except Status.DoesNotExist:
+            print("Default status 'New' for 'Customer' context not found")
+            default_status = None
+        except Status.MultipleObjectsReturned:
+            print("Multiple default statuses found, using the first one")
+            default_status = Status.objects.filter(status='New', context__context='Customer').first()
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        
+        if hasattr(user, 'customer_profile'):
+            return queryset.filter(id=user.customer_profile.id)
+        
+        return queryset
+
     def get_permissions(self):
         if self.action == 'create':
             return [permissions.AllowAny()]

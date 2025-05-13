@@ -49,7 +49,6 @@ const Register = () => {
       password: "",
       confirm_password: "",
     },
-    status: 1,
     phone_number: "",
     preferred_notification: "email",
     addresses: [],
@@ -310,7 +309,6 @@ const Register = () => {
         },
         phone_number: formData.phone_number,
         preferred_notification: formData.preferred_notification,
-        status: formData.status,
       };
 
       console.log("Sending registration data:", payload);
