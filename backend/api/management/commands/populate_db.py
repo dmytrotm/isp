@@ -534,7 +534,7 @@ class Command(BaseCommand):
 
     def create_contracts_for_every_day(self, percentage_of_requests):
         """Create contracts for every single day in a period, using completed connection requests"""
-        self.stdout.write(self.style.NOTICE('Creating contracts for every day in the next 90 days...'))
+        self.stdout.write(self.style.NOTICE('Creating contracts for every day in the last 90 days...'))
         
         # Get completed connection requests
         completed_status = Status.objects.get(status='Completed', context__context='ConnectionRequest')
@@ -547,8 +547,8 @@ class Command(BaseCommand):
         equipment_items = list(Equipment.objects.filter(stock_quantity__gt=0))
         
         # Define date range - create contracts for the last 90 days
-        end_date = now().date() + timedelta(days=90)
-        start_date =  now().date() - timedelta(days=1)
+        end_date = now().date()
+        start_date =  now().date() - timedelta(days=90)
         
         count = 0
         current_date = start_date
