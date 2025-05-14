@@ -101,8 +101,7 @@ class CustomerCreateSerializer(serializers.ModelSerializer, ContextAwareSerializ
         addresses_data = validated_data.pop('addresses', [])
         
         user = UserRegisterSerializer().create(user_data)
-        default_status = Status.objects.get(status='New', context__context='Customer')
-        customer = Customer.objects.create(user=user, status=default_status,**validated_data)
+        customer = Customer.objects.create(user=user,**validated_data)
         
         for address_data in addresses_data:
             Address.objects.create(customer=customer, **address_data)

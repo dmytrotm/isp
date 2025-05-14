@@ -126,18 +126,22 @@ class CustomerViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-        
+
     def perform_create(self, serializer):
-        # Get the default "New" status for Customer context
         try:
             default_status = Status.objects.get(status='New', context__context='Customer')
             print(f"Found default status: {default_status}")
+            # Actually save the serializer with the default status
+            serializer.save(status=default_status)
         except Status.DoesNotExist:
             print("Default status 'New' for 'Customer' context not found")
-            default_status = None
+            # Save without specifying status if default not found
+            serializer.save()
         except Status.MultipleObjectsReturned:
             print("Multiple default statuses found, using the first one")
             default_status = Status.objects.filter(status='New', context__context='Customer').first()
+            # Save with the first default status found
+            serializer.save(status=default_status)
     
     def get_queryset(self):
         queryset = super().get_queryset()
