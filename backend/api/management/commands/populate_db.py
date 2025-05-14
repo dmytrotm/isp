@@ -1,12 +1,13 @@
 import random
 from decimal import Decimal
-from datetime import timedelta
+from datetime import timedelta, date
 from django.core.management.base import BaseCommand
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from faker import Faker
 from django.db import connection
-
+from unidecode import unidecode
+import re
 
 from django.contrib.auth.models import Group
 from api.models import (
@@ -19,24 +20,31 @@ from api.models import (
 # Initialize Faker
 fake = Faker('uk_UA')  # Ukrainian locale, adjust as needed
 
+def clean_name(name):
+    return re.sub(r'[^a-z0-9]', '', unidecode(name).lower())
+
 class Command(BaseCommand):
     help = 'Populates the database with sample data for testing'
     
     def add_arguments(self, parser):
-        parser.add_argument('--customers', type=int, default=50, help='Number of customers to create')
-        parser.add_argument('--staff', type=int, default=10, help='Number of staff members to create')
+        parser.add_argument('--customers', type=int, default=100, help='Number of customers to create')
+        parser.add_argument('--staff', type=int, default=50, help='Number of staff members to create')
         parser.add_argument('--equipment', type=int, default=20, help='Number of equipment items to create')
         parser.add_argument('--services', type=int, default=5, help='Number of services to create')
         parser.add_argument('--tariffs', type=int, default=10, help='Number of tariffs to create')
         parser.add_argument('--tickets', type=int, default=40, help='Number of support tickets to create')
-        parser.add_argument('--requests', type=int, default=30, help='Number of connection requests to create')
-        parser.add_argument('--contract-percent', type=int, default=70, 
+        parser.add_argument('--requests', type=int, default=400, help='Number of connection requests to create')
+        parser.add_argument('--contract-percent', type=int, default=100, 
                            help='Percentage of completed requests to convert to contracts')
         parser.add_argument('--clear', action='store_true', help='Clear existing data before populating')
+        parser.add_argument('--fixed-amount', type=Decimal, default=Decimal('500.00'), 
+                           help='Fixed amount for invoices and payments')
     
     def handle(self, *args, **options):       
         if options['clear']:
             self.clear_data()
+        
+        self.fixed_amount = options['fixed_amount']
         
         self.create_initial_data()
         self.create_equipment(options['equipment'])
@@ -44,7 +52,7 @@ class Command(BaseCommand):
         self.create_users_and_staff(options['staff'])
         self.create_customers(options['customers'])
         self.create_connection_requests(options['requests'])
-        self.create_contracts(options['contract_percent'])
+        self.create_contracts_for_every_day(options['contract_percent'])
         self.create_support_tickets(options['tickets'])
         self.create_payments_and_invoices()
         self.create_network_usage()
@@ -152,7 +160,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('Initial data created successfully.'))
 
     def create_equipment(self, num_items):
-        """Create equipment items"""
+        """Create equipment items with larger stock quantities"""
         self.stdout.write(self.style.NOTICE(f'Creating {num_items} equipment items...'))
         
         fake = Faker('uk_UA')
@@ -162,7 +170,7 @@ class Command(BaseCommand):
             name = fake.word() + " " + fake.word()
             description = fake.paragraph()
             price = Decimal(str(random.randint(500, 5000)))
-            stock_quantity = random.randint(5, 50)
+            stock_quantity = random.randint(200, 500)  # Increased stock quantity
             category = random.choice(categories)
             state = random.choice(['new', 'used'])
             
@@ -176,6 +184,7 @@ class Command(BaseCommand):
             )
         
         self.stdout.write(self.style.SUCCESS(f'Created {num_items} equipment items.'))
+
 
     def create_services_and_tariffs(self, num_services, num_tariffs):
         """Create services and tariffs"""
@@ -328,7 +337,7 @@ class Command(BaseCommand):
         for i in range(num_staff):
             first_name = fake.first_name()
             last_name = fake.last_name()
-            email = f"{first_name.lower()}.{last_name.lower()}{i}@example.com"
+            email = f"{clean_name(first_name).lower()}.{clean_name(last_name).lower()}{i}@example.com"
             
             try:
                 user, created = User.objects.get_or_create(
@@ -418,7 +427,7 @@ class Command(BaseCommand):
         for i in range(num_customers):
             first_name = fake.first_name()
             last_name = fake.last_name()
-            email = f"{first_name.lower()}.{last_name.lower()}{i}@example.com"
+            email = f"{clean_name(first_name).lower()}.{clean_name(last_name).lower()}{i}@example.com"
             
             # Generate valid Ukrainian phone number in the required format
             phone_number = "+380" + ''.join([str(random.randint(0, 9)) for _ in range(9)])
@@ -472,9 +481,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.NOTICE(f'Creating {num_requests} connection requests...'))
         
         customers = list(Customer.objects.all())
-        statuses = list(Status.objects.filter(context__context='ConnectionRequest'))
+        completed_status = Status.objects.get(status='Completed', context__context='ConnectionRequest')
         tariffs = list(Tariff.objects.filter(is_active=True))
         technicians = list(Employee.objects.filter(role__name='technician'))
+        
+        # Ensure we have at least 3 requests per day for the last 90 days
+        minimum_requests = 3 * 90  # 3 requests per day for 90 days
+        num_requests = max(num_requests, minimum_requests)
         
         count = 0
         for _ in range(num_requests):
@@ -483,8 +496,10 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING('No customers available to create connection requests'))
                     break
                     
-                customer = random.choice(customers)
-                status = random.choice(statuses)
+                # Instead of random.choice, distribute customers more evenly
+                # Select customers in a cycle to ensure good distribution
+                customer = customers[count % len(customers)]
+                status = completed_status
                 
                 # Get a random address from this customer
                 addresses = list(Address.objects.filter(customer=customer))
@@ -504,7 +519,7 @@ class Command(BaseCommand):
                 )
                 
                 # Assign a technician
-                if random.random() > 0.3 and technicians:  # 70% chance to have a technician
+                if technicians:  # Always assign a technician for completed requests
                     technician = random.choice(technicians)
                     ConnectionRequestAssignment.objects.create(
                         connection_request=request,
@@ -517,84 +532,154 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f'Created {count} connection requests.'))
 
-    def create_contracts(self, percentage_of_requests):
-        """Create contracts for completed connection requests"""
-        self.stdout.write(self.style.NOTICE(f'Creating contracts for {percentage_of_requests}% of connection requests...'))
+    def create_contracts_for_every_day(self, percentage_of_requests):
+        """Create contracts for every single day in a period, using completed connection requests"""
+        self.stdout.write(self.style.NOTICE('Creating contracts for every day in the next 90 days...'))
         
-        # Get completed connection requests that don't already have contracts
+        # Get completed connection requests
         completed_status = Status.objects.get(status='Completed', context__context='ConnectionRequest')
+        available_requests = list(ConnectionRequest.objects.filter(status=completed_status))
         
-        # Find connection requests that don't already have associated contracts
-        existing_contract_requests = Contract.objects.values_list('connection_request_id', flat=True)
-        available_requests = ConnectionRequest.objects.filter(
-            status=completed_status
-        ).exclude(
-            id__in=existing_contract_requests
-        )
-        
-        # Calculate how many contracts to create
-        num_contracts = int(len(available_requests) * (percentage_of_requests / 100))
         if not available_requests:
             self.stdout.write(self.style.WARNING('No available connection requests to create contracts'))
             return
-            
-        requests_for_contracts = random.sample(list(available_requests), min(num_contracts, len(available_requests)))
+        
         equipment_items = list(Equipment.objects.filter(stock_quantity__gt=0))
         
-        count = 0
-        for request in requests_for_contracts:
-            try:
-                # Get a service from the tariff
-                tariff_services = list(request.tariff.services.all())
-                if not tariff_services:
-                    self.stdout.write(self.style.WARNING(f"Tariff {request.tariff.name} has no services, skipping contract creation"))
-                    continue
-                    
-                service = random.choice(tariff_services)
-                
-                # Check if a contract already exists for this request (double-check)
-                if Contract.objects.filter(connection_request_id=request.id).exists():
-                    self.stdout.write(self.style.WARNING(f"Contract already exists for request {request.id}, skipping"))
-                    continue
-                
-                # Use a database transaction to ensure all operations succeed or fail together
-                from django.db import transaction
-                
-                with transaction.atomic():
-                    # Create the contract
-                    contract = Contract.objects.create(
-                        customer=request.customer,
-                        connection_request=request,
-                        address=request.address,
-                        service=service,
-                        tariff=request.tariff,
-                        start_date=now() - timedelta(days=random.randint(1, 90)),
-                        end_date=now() + timedelta(days=random.randint(180, 365))
-                    )
-                    
-                    # Only proceed with equipment assignment if contract was successfully created
-                    # and there are equipment items available
-                    if equipment_items and random.random() > 0.3:
-                        num_equipment = random.randint(1, min(2, len(equipment_items)))
-                        selected_equipment = random.sample(equipment_items, num_equipment)
-                        
-                        for equip in selected_equipment:
-                            if equip.stock_quantity > 0:
-                                ContractEquipment.objects.create(
-                                    contract=contract,
-                                    equipment=equip,
-                                    is_active=True
-                                )
-                                # Reduce stock quantity
-                                equip.stock_quantity -= 1
-                                equip.save()
-                    
-                    count += 1
-                    
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Error creating contract for request {request.id}: {str(e)}"))
+        # Define date range - create contracts for the last 90 days
+        end_date = now().date() + timedelta(days=90)
+        start_date =  now().date() - timedelta(days=1)
         
-        self.stdout.write(self.style.SUCCESS(f'Created {count} contracts.'))
+        count = 0
+        current_date = start_date
+        
+        # Create contracts for each day in the range
+        while current_date <= end_date:
+            # Ensure at least 3 contracts per day
+            num_contracts_for_day = random.randint(3, 5)
+            
+            contracts_created_today = 0
+            max_attempts = 10  # Limit attempts to prevent infinite loop
+            attempts = 0
+            
+            while contracts_created_today < num_contracts_for_day and attempts < max_attempts:
+                attempts += 1
+                
+                if not available_requests:
+                    # Create more requests if we run out
+                    self.create_more_requests(10)
+                    available_requests = list(ConnectionRequest.objects.filter(status=completed_status))
+                    if not available_requests:
+                        self.stdout.write(self.style.WARNING('Cannot create more requests - breaking contract creation'))
+                        break
+                
+                # Select a random request for this contract
+                request = random.choice(available_requests)
+                available_requests.remove(request)  # Don't reuse the same request
+                
+                try:
+                    # Get a service from the tariff
+                    tariff_services = list(request.tariff.services.all())
+                    if not tariff_services:
+                        continue
+                    
+                    service = random.choice(tariff_services)
+                    
+                    # Check if a contract already exists for this request
+                    if Contract.objects.filter(connection_request_id=request.id).exists():
+                        continue
+                    
+                    # Use transaction to ensure consistency
+                    from django.db import transaction
+                    
+                    with transaction.atomic():
+                        # Create contract with the current date
+                        contract = Contract.objects.create(
+                            customer=request.customer,
+                            connection_request=request,
+                            address=request.address,
+                            service=service,
+                            tariff=request.tariff,
+                            start_date=current_date,  # Set start date to the current day in our loop
+                            end_date=current_date + timedelta(days=365)  # Contract lasts for 1 year
+                        )
+                        
+                        # Add equipment to contract
+                        if equipment_items and random.random() > 0.3:
+                            num_equipment = random.randint(1, min(2, len(equipment_items)))
+                            selected_equipment = random.sample(equipment_items, num_equipment)
+                            
+                            for equip in selected_equipment:
+                                if equip.stock_quantity > 0:
+                                    ContractEquipment.objects.create(
+                                        contract=contract,
+                                        equipment=equip,
+                                        is_active=True
+                                    )
+                                    # Reduce stock quantity
+                                    equip.stock_quantity -= 1
+                                    equip.save()
+                        
+                        contracts_created_today += 1
+                        count += 1
+                        
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f"Error creating contract for date {current_date}: {str(e)}"))
+            
+            # Move to the next day
+            current_date += timedelta(days=1)
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {count} contracts spread across every day in the last 90 days.'))
+        
+    def create_more_requests(self, num_requests):
+        """Create additional connection requests when we run out"""
+        self.stdout.write(self.style.NOTICE(f'Creating {num_requests} additional connection requests...'))
+        
+        customers = list(Customer.objects.all())
+        completed_status = Status.objects.get(status='Completed', context__context='ConnectionRequest')
+        tariffs = list(Tariff.objects.filter(is_active=True))
+        technicians = list(Employee.objects.filter(role__name='technician'))
+        
+        count = 0
+        for _ in range(num_requests):
+            try:
+                if not customers:
+                    self.stdout.write(self.style.WARNING('No customers available to create connection requests'))
+                    break
+                    
+                customer = random.choice(customers)
+                status = completed_status
+                
+                # Get a random address from this customer
+                addresses = list(Address.objects.filter(customer=customer))
+                if not addresses:
+                    continue
+                
+                address = random.choice(addresses)
+                tariff = random.choice(tariffs)
+                
+                # Create the connection request
+                request = ConnectionRequest.objects.create(
+                    customer=customer,
+                    status=status,
+                    address=address,
+                    tariff=tariff,
+                    notes=fake.paragraph() if random.random() > 0.5 else None
+                )
+                
+                # Always assign a technician for completed requests
+                if technicians:
+                    technician = random.choice(technicians)
+                    ConnectionRequestAssignment.objects.create(
+                        connection_request=request,
+                        employee=technician,
+                        role='technician'
+                    )
+                count += 1
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f"Error creating additional connection request: {str(e)}"))
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {count} additional connection requests.'))
        
     def create_support_tickets(self, num_tickets):
         """Create support tickets"""
@@ -636,8 +721,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Created {count} support tickets.'))
 
     def create_payments_and_invoices(self):
-        """Create payments and invoices for all contracts"""
-        self.stdout.write(self.style.NOTICE('Creating payments and invoices...'))
+        """Create payments and invoices for all contracts with a fixed amount"""
+        self.stdout.write(self.style.NOTICE('Creating payments and invoices with fixed amount...'))
         
         contracts = Contract.objects.filter(end_date__gt=now())
         payment_methods = list(PaymentMethod.objects.all())
@@ -657,7 +742,8 @@ class Command(BaseCommand):
                 elif random.random() < 0.2:  # 20% chance to be pending
                     status = 'pending'
                 
-                amount = contract.tariff.price
+                # Use the fixed amount instead of tariff price
+                amount = self.fixed_amount
                 
                 try:
                     invoice = Invoice.objects.create(
@@ -675,7 +761,7 @@ class Command(BaseCommand):
                         
                         Payment.objects.create(
                             customer=contract.customer,
-                            amount=amount,
+                            amount=amount,  # Use the same fixed amount
                             payment_date=payment_date,
                             method=random.choice(payment_methods)
                         )
@@ -683,7 +769,7 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f"Error creating invoice for contract {contract.id}: {str(e)}"))
         
-        self.stdout.write(self.style.SUCCESS(f'Created {invoice_count} invoices and {payment_count} payments.'))
+        self.stdout.write(self.style.SUCCESS(f'Created {invoice_count} invoices and {payment_count} payments with fixed amount of {self.fixed_amount}.'))
 
     def create_network_usage(self):
         """Create network usage data for all contracts"""
