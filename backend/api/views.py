@@ -518,6 +518,11 @@ class ContractViewSet(viewsets.ModelViewSet):
         # Create a file-like buffer to receive PDF data
         buffer = io.BytesIO()
         
+        # Register TTF fonts that support Cyrillic characters
+        # You need to have these font files in your project or system
+        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', 'DejaVuSans-Bold.ttf'))
+        
         # Create the PDF object using the buffer as its "file"
         doc = SimpleDocTemplate(buffer, pagesize=letter, 
                                 rightMargin=72, leftMargin=72,
@@ -526,13 +531,19 @@ class ContractViewSet(viewsets.ModelViewSet):
         # Container for the 'Flowable' objects
         elements = []
         
-        # Define styles
+        # Define styles with Cyrillic-supporting fonts
         styles = getSampleStyleSheet()
+        
+        # Override default fonts in styles to use Cyrillic-supporting fonts
         title_style = styles['Heading1']
+        title_style.fontName = 'DejaVuSans-Bold'
         title_style.alignment = 1  # Center alignment
         
         subtitle_style = styles['Heading2']
+        subtitle_style.fontName = 'DejaVuSans-Bold'
+        
         normal_style = styles['Normal']
+        normal_style.fontName = 'DejaVuSans'
         
         # Add company logo and header info
         elements.append(Paragraph(f"Contract #{contract.id}", title_style))
@@ -556,6 +567,7 @@ class ContractViewSet(viewsets.ModelViewSet):
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('PADDING', (0, 0), (-1, -1), 6),
+            ('FONT', (0, 0), (-1, -1), 'DejaVuSans'),  # Set font for table text
         ]))
         elements.append(customer_table)
         elements.append(Spacer(1, 0.25*inch))
@@ -577,6 +589,7 @@ class ContractViewSet(viewsets.ModelViewSet):
             ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('PADDING', (0, 0), (-1, -1), 6),
+            ('FONT', (0, 0), (-1, -1), 'DejaVuSans'),  # Set font for table text
         ]))
         elements.append(contract_table)
         elements.append(Spacer(1, 0.25*inch))
@@ -598,6 +611,7 @@ class ContractViewSet(viewsets.ModelViewSet):
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('PADDING', (0, 0), (-1, -1), 6),
                 ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('FONT', (0, 0), (-1, -1), 'DejaVuSans'),  # Set font for table text
             ]))
             elements.append(equipment_table)
             elements.append(Spacer(1, 0.25*inch))
@@ -621,6 +635,7 @@ class ContractViewSet(viewsets.ModelViewSet):
                 ('PADDING', (0, 0), (-1, -1), 6),
                 ('ALIGN', (0, 0), (0, -1), 'CENTER'),
                 ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('FONT', (0, 0), (-1, -1), 'DejaVuSans'),  # Set font for table text
             ]))
             elements.append(invoice_table)
             elements.append(Spacer(1, 0.25*inch))
@@ -635,7 +650,7 @@ class ContractViewSet(viewsets.ModelViewSet):
         # Footer with page numbers
         def add_page_number(canvas, doc):
             canvas.saveState()
-            canvas.setFont('Helvetica', 9)
+            canvas.setFont('DejaVuSans', 9)  # Use Cyrillic-supporting font
             page_number_text = f"Page {canvas.getPageNumber()}"
             canvas.drawRightString(letter[0] - 72, 0.5 * inch, page_number_text)
             canvas.restoreState()
@@ -647,10 +662,13 @@ class ContractViewSet(viewsets.ModelViewSet):
         # present the option to save the file.
         buffer.seek(0)
         response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="contract_{contract.id}.pdf"'
+        
+        # Set UTF-8 filename encoding for better Cyrillic filename support
+        filename = f"contract_{contract.id}.pdf"
+        response['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{quote(filename)}'
         
         return response
-
+    
 # Payment views
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().order_by('-payment_date')
@@ -853,6 +871,15 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         # Create a file-like buffer to receive PDF data
         buffer = io.BytesIO()
         
+        # Import additional libraries for font support
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        
+        # Register Cyrillic-compatible fonts
+        # We'll use DejaVu fonts which support Cyrillic
+        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', 'DejaVuSans-Bold.ttf'))
+        
         # Create the PDF object using the buffer as its "file"
         doc = SimpleDocTemplate(buffer, pagesize=letter, 
                             rightMargin=72, leftMargin=72,
@@ -861,13 +888,20 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         # Container for the 'Flowable' objects
         elements = []
         
-        # Define styles
+        # Define styles with Cyrillic-compatible fonts
         styles = getSampleStyleSheet()
+        for style_name in styles.byName:
+            styles[style_name].fontName = 'DejaVuSans'
+        
         title_style = styles['Heading1']
         title_style.alignment = 1  # Center alignment
+        title_style.fontName = 'DejaVuSans-Bold'
         
         subtitle_style = styles['Heading2']
+        subtitle_style.fontName = 'DejaVuSans-Bold'
+        
         normal_style = styles['Normal']
+        normal_style.fontName = 'DejaVuSans'
         
         # Add invoice header
         elements.append(Paragraph("INVOICE", title_style))
@@ -886,7 +920,8 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
+            ('FONTNAME', (0, 0), (0, 0), 'DejaVuSans-Bold'),
             ('FONTSIZE', (0, 0), (0, 0), 14),
         ]))
         elements.append(company_table)
@@ -913,7 +948,8 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         customer_table = Table(customer_info, colWidths=[3*inch])
         customer_table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
+            ('FONTNAME', (0, 0), (0, 0), 'DejaVuSans-Bold'),
         ]))
         elements.append(customer_table)
         elements.append(Spacer(1, 0.25*inch))
@@ -958,8 +994,9 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ALIGN', (2, 1), (3, -1), 'RIGHT'),  # Align price columns to the right
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  # Header row bold
-            ('FONTNAME', (2, -1), (3, -1), 'Helvetica-Bold'),  # Total row bold
+            ('FONTNAME', (0, 0), (-1, -1), 'DejaVuSans'),
+            ('FONTNAME', (0, 0), (-1, 0), 'DejaVuSans-Bold'),  # Header row bold
+            ('FONTNAME', (2, -1), (3, -1), 'DejaVuSans-Bold'),  # Total row bold
             ('LINEABOVE', (0, -1), (-1, -1), 1, colors.black),  # Line above total
             ('PADDING', (0, 0), (-1, -1), 6),
         ]))
@@ -970,6 +1007,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         payment_title_style = ParagraphStyle(
             'PaymentTitle',
             parent=styles['Heading3'],
+            fontName='DejaVuSans-Bold',
             spaceAfter=6
         )
         elements.append(Paragraph("PAYMENT INSTRUCTIONS", payment_title_style))
@@ -978,13 +1016,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         Please pay by the due date to avoid service interruption. You can pay online at www.yourisp.com/pay 
         or by calling customer service at +18174820667.
         """
-        elements.append(Paragraph(payment_text, normal_style))
+        payment_style = ParagraphStyle(
+            'Payment',
+            parent=normal_style,
+            fontName='DejaVuSans'
+        )
+        elements.append(Paragraph(payment_text, payment_style))
         
         # Thank you note
         elements.append(Spacer(1, 0.25*inch))
         thank_you_style = ParagraphStyle(
             'ThankYou',
             parent=normal_style,
+            fontName='DejaVuSans',
             fontSize=10,
             alignment=1  # Center
         )
@@ -993,7 +1037,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         # Footer
         def add_footer(canvas, doc):
             canvas.saveState()
-            canvas.setFont('Helvetica', 8)
+            canvas.setFont('DejaVuSans', 8)
             footer_text = "For questions about this invoice, please contact customer service."
             canvas.drawCentredString(letter[0]/2, 0.5*inch, footer_text)
             canvas.restoreState()
