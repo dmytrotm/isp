@@ -305,6 +305,9 @@ class CustomerDetailSerializer(CustomerSerializer):
     support_tickets = SupportTicketSerializer(many=True, read_only=True)
     transactions = BalanceTransactionSerializer(many=True, read_only=True)
 
+    class Meta(CustomerSerializer.Meta):
+        fields = CustomerSerializer.Meta.fields + ('transactions',)
+
 class ClientScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientScore

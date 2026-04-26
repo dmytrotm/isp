@@ -43,3 +43,9 @@ class ContractViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return Response(ContractEquipmentSerializer(ce).data, status=status.HTTP_201_CREATED)
         except Equipment.DoesNotExist:
             return Response({'error': 'Equipment not found'}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=True, methods=['post'], permission_classes=[IsManager | IsAdmin])
+    def terminate(self, request, pk=None):
+        contract = self.get_object()
+        if contract.terminate():
+            return Response({'status': 'Contract terminated successfully'})
+        return Response({'error': 'Contract already terminated'}, status=status.HTTP_400_BAD_REQUEST)

@@ -26,7 +26,7 @@ export default function EmployeeModal({ open, onClose, loading, detailData }) {
           <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}><CircularProgress /></Box>
         ) : detailData ? (
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Employee Information</Typography>
@@ -47,7 +47,7 @@ export default function EmployeeModal({ open, onClose, loading, detailData }) {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Permissions & Groups</Typography>
@@ -67,7 +67,7 @@ export default function EmployeeModal({ open, onClose, loading, detailData }) {
             </Grid>
 
             {/* Recent Activities */}
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Recent Activities</Typography>
@@ -85,7 +85,7 @@ export default function EmployeeModal({ open, onClose, loading, detailData }) {
             </Grid>
 
             {/* Assigned Tickets */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Assigned Support Tickets</Typography>
@@ -93,7 +93,7 @@ export default function EmployeeModal({ open, onClose, loading, detailData }) {
                     <List dense>
                       {detailData.assigned_tickets.slice(0, 5).map((ticket) => (
                         <ListItem key={ticket.id}>
-                          <ListItemText primary={ticket.subject} secondary={`Created: ₴{new Date(ticket.created_at).toLocaleDateString()} - Status: ₴{ticket.status}`} />
+                          <ListItemText primary={ticket.subject} secondary={`Created: ${new Date(ticket.created_at).toLocaleDateString()} - Status: ${ticket.status}`} />
                         </ListItem>
                       ))}
                     </List>

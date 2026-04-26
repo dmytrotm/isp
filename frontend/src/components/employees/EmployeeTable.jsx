@@ -28,17 +28,18 @@ export default function EmployeeTable({
               <TableCell>Name</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Role</TableCell>
+              <TableCell>Status</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell>
+                <TableCell colSpan={6} align="center"><CircularProgress size={24} /></TableCell>
               </TableRow>
             ) : employees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">No employees found</TableCell>
+                <TableCell colSpan={6} align="center">No employees found</TableCell>
               </TableRow>
             ) : (
               employees.map((employee) => (
@@ -48,6 +49,13 @@ export default function EmployeeTable({
                   <TableCell>{employee.user_details?.email}</TableCell>
                   <TableCell>
                     <Chip label={employee.role_name} color={getRoleColor(employee.role_name)} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={employee.is_available && employee.user_details?.is_active ? "Active" : "Inactive"} 
+                      color={employee.is_available && employee.user_details?.is_active ? "success" : "default"} 
+                      size="small" 
+                    />
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", gap: 1 }}>

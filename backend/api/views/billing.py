@@ -15,7 +15,7 @@ from ..utils.mixins import StandardResponseMixin
 
 class TariffViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     permission_classes = [ReadOnlyOrAdmin]
-    queryset = Tariff.objects.filter(is_active=True)
+    queryset = Tariff.objects.all()
     serializer_class = TariffSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['name', 'price']
@@ -28,12 +28,15 @@ class TariffViewSet(StandardResponseMixin, viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         from django.db.models.deletion import ProtectedError
+        instance = self.get_object()
         try:
             return super().destroy(request, *args, **kwargs)
         except ProtectedError:
+            instance.is_active = False
+            instance.save()
             return Response(
-                {"error": "Cannot delete this tariff because it is currently assigned to customers or connection requests. Please deactivate it instead."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Tariff is in use and cannot be deleted, so it has been deactivated instead."},
+                status=status.HTTP_200_OK
             )
 
     @action(detail=False, methods=['get'])
@@ -51,6 +54,31 @@ class TariffViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManager | IsAdmin])
+    def export_csv(self, request):
+        from ..services.csv_service import CSVService
+        from django.http import HttpResponse
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        csv_data = CSVService.export_tariffs(queryset)
+        
+        response = HttpResponse(csv_data, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="tariffs.csv"'
+        return response
+
+    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManager | IsAdmin])
+    def import_csv(self, request):
+        from ..services.csv_service import CSVService
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        count, errors = CSVService.import_tariffs(csv_file)
+        return Response({
+            'count': count,
+            'errors': errors
+        }, status=status.HTTP_201_CREATED if count > 0 else status.HTTP_400_BAD_REQUEST)
+
 class ServiceViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
@@ -61,12 +89,15 @@ class ServiceViewSet(StandardResponseMixin, viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         from django.db.models.deletion import ProtectedError
+        instance = self.get_object()
         try:
             return super().destroy(request, *args, **kwargs)
         except ProtectedError:
+            instance.is_active = False
+            instance.save()
             return Response(
-                {"error": "Cannot delete this service because it is linked to existing contracts or tariffs. Please deactivate it instead."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Service is in use and cannot be deleted, so it has been deactivated instead."},
+                status=status.HTTP_200_OK
             )
 
 class PaymentViewSet(StandardResponseMixin, viewsets.ModelViewSet):

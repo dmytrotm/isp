@@ -25,7 +25,7 @@ class EmployeeViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         from ..utils.permissions import IsManagerOrAdmin
         if self.action in ['list', 'retrieve']:
             return [IsManagerOrAdmin()]
-        return [IsManager()]
+        return [IsManagerOrAdmin()]
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -95,6 +95,28 @@ class EmployeeViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             'count': count,
             'errors': errors
         }, status=status.HTTP_201_CREATED if count > 0 else status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
+        from django.db import transaction
+        instance = self.get_object()
+        try:
+            # Try to delete the employee and their user
+            user = instance.user
+            with transaction.atomic():
+                instance.delete()
+                user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ProtectedError:
+            # Fallback to deactivation
+            instance.user.is_active = False
+            instance.user.save()
+            instance.is_available = False
+            instance.save()
+            return Response(
+                {"message": "Employee has assigned tasks (tickets, requests, etc.) and cannot be deleted. They have been deactivated instead."},
+                status=status.HTTP_200_OK
+            )
 
 class EmployeeRoleViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     queryset = EmployeeRole.objects.all().order_by('name')

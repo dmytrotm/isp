@@ -1,21 +1,25 @@
 from django.db.models import Count, Q
-from ..models import Employee, SupportTicket
+from ..models import Employee, SupportTicket, ConnectionRequest, ConnectionRequestAssignment, Status
 from .notifications import send_notification
 
 def auto_assign_technician(ticket):
     """
-    Finds the available technician with the fewest open tickets.
+    Finds the available staff with the fewest open tickets.
+    Technicians for 'technical' and 'connection' tickets.
+    Support staff for 'billing' and 'other' tickets.
     """
-    # Find available technician
-    technician = (
+    role_name = 'technician' if ticket.ticket_type in ['technical', 'connection'] else 'Support'
+    
+    # Find available staff
+    staff = (
         Employee.objects
         .filter(
-            role__name__iexact='technician',
+            role__name__iexact=role_name,
             is_available=True
         )
         .annotate(
             open_ticket_count=Count(
-                'supportticket', # Note: default related_name is supportticket or related_name='assigned_tickets'
+                'supportticket',
                 filter=Q(supportticket__status__status__in=['Open', 'In Progress', 'New'])
             )
         )
@@ -23,15 +27,23 @@ def auto_assign_technician(ticket):
         .first()
     )
     
-    if technician is None:
+    if staff is None:
+        # Fallback: if no specific role available, try any available employee if it's 'other'
+        if ticket.ticket_type == 'other':
+            staff = Employee.objects.filter(is_available=True).annotate(
+                open_ticket_count=Count('supportticket', filter=Q(supportticket__status__status__in=['Open', 'In Progress', 'New']))
+            ).order_by('open_ticket_count').first()
+        
+    if staff is None:
         return None
     
-    ticket.assigned_to = technician
+    ticket.assigned_to = staff
     
     # Update status to 'Open' if it was 'New'
     try:
-        from ..models import Status
-        open_status = Status.objects.filter(status='Open', context__context='SupportTicket').first()
+        from ..models import StatusContext
+        context = StatusContext.objects.filter(context='SupportTicket').first()
+        open_status = Status.objects.filter(status='Open', context=context).first()
         if open_status:
             ticket.status = open_status
     except Exception:
@@ -39,16 +51,68 @@ def auto_assign_technician(ticket):
         
     ticket.save(update_fields=['assigned_to', 'status'])
     
-    # Try sending notification if possible
+    # Send notification
     try:
-        # Check if technician has a customer profile (unlikely but following logic)
-        # Or just use the service to create a Notification record for the employee
         send_notification(
-            customer=technician.user.customer_profile if hasattr(technician.user, 'customer_profile') else None,
+            customer=staff.user.customer_profile if hasattr(staff.user, 'customer_profile') else None,
             notification_type='ticket_assigned',
             message=f'You have been assigned to ticket #{ticket.id}: {ticket.subject}'
         )
     except Exception:
         pass
         
+    return staff
+
+def auto_assign_connection_request(conn_req):
+    """
+    Finds the available technician with the fewest open connection requests.
+    """
+    technician = (
+        Employee.objects
+        .filter(
+            role__name__iexact='technician',
+            is_available=True
+        )
+        .annotate(
+            open_req_count=Count(
+                'connectionrequestassignment',
+                filter=Q(connectionrequest__status__status__in=['New', 'In Progress', 'Pending'])
+            )
+        )
+        .order_by('open_req_count')
+        .first()
+    )
+    
+    if technician is None:
+        return None
+    
+    # Check if already assigned to this technician
+    if not ConnectionRequestAssignment.objects.filter(connection_request=conn_req, employee=technician).exists():
+        ConnectionRequestAssignment.objects.create(
+            connection_request=conn_req,
+            employee=technician,
+            role='technician'
+        )
+        
+        # Update status to 'In Progress' if it was 'New'
+        try:
+            from ..models import StatusContext
+            context = StatusContext.objects.filter(context='ConnectionRequest').first()
+            in_progress_status = Status.objects.filter(status='In Progress', context=context).first()
+            if in_progress_status and conn_req.status.status == 'New':
+                conn_req.status = in_progress_status
+                conn_req.save(update_fields=['status'])
+        except Exception:
+            pass
+            
+        # Send notification
+        try:
+            send_notification(
+                customer=technician.user.customer_profile if hasattr(technician.user, 'customer_profile') else None,
+                notification_type='request_assigned',
+                message=f'You have been assigned to connection request #{conn_req.id}'
+            )
+        except Exception:
+            pass
+            
     return technician

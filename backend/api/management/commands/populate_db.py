@@ -738,7 +738,8 @@ class Command(BaseCommand):
                     customer=customer,
                     subject=subject,
                     description=fake.paragraph(nb_sentences=3),
-                    status=status
+                    status=status,
+                    ticket_type=random.choice(['technical', 'billing', 'connection', 'other'])
                 )
                 
                 # Assign support staff for tickets that aren't new

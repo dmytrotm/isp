@@ -268,12 +268,12 @@ export default function NetworkUsageGraph() {
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
           <Chip
-            label={`Service: ₴{customerInfo.service}`}
+            label={`Service: ${customerInfo.service}`}
             color="primary"
             variant="outlined"
           />
           <Chip
-            label={`Tariff: ₴{customerInfo.tariff}`}
+            label={`Tariff: ${customerInfo.tariff}`}
             color="secondary"
             variant="outlined"
           />
@@ -358,7 +358,7 @@ export default function NetworkUsageGraph() {
               />
               <Tooltip
                 formatter={(value) => [`${value} GB`, null]}
-                labelFormatter={(label) => `Date: ₴{label}`}
+                labelFormatter={(label) => `Date: ${label}`}
                 contentStyle={{
                   backgroundColor: "rgba(255, 255, 255, 0.9)",
                   borderRadius: 0.5,
@@ -406,7 +406,7 @@ export default function NetworkUsageGraph() {
               />
               <Tooltip
                 formatter={(value) => [`${value} GB`, null]}
-                labelFormatter={(label) => `Date: ₴{label}`}
+                labelFormatter={(label) => `Date: ${label}`}
                 contentStyle={{
                   backgroundColor: "rgba(255, 255, 255, 0.9)",
                   borderRadius: 0.5,

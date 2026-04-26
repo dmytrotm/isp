@@ -254,6 +254,33 @@ class CustomerViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return Response({'created': created_count, 'errors': errors}, status=status.HTTP_207_MULTI_STATUS)
         return Response({'created': created_count}, status=status.HTTP_201_CREATED)
 
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
+        instance = self.get_object()
+        try:
+            # Try to delete the customer and their user
+            user = instance.user
+            with transaction.atomic():
+                instance.delete()
+                user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ProtectedError:
+            # Fallback to deactivation
+            instance.user.is_active = False
+            instance.user.save()
+            
+            try:
+                inactive_status = Status.objects.get(status='Inactive', context__context='Customer')
+                instance.status = inactive_status
+                instance.save()
+            except Status.DoesNotExist:
+                pass
+                
+            return Response(
+                {"message": "Customer has active records (contracts, invoices, etc.) and cannot be deleted. They have been deactivated instead."},
+                status=status.HTTP_200_OK
+            )
+
 class AddressViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Address.objects.select_related("region", "customer")

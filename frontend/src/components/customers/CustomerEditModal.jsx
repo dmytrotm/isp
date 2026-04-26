@@ -9,19 +9,19 @@ export default function CustomerEditModal({ open, onClose, onSubmit, customerToE
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {customerToEdit && (
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField name="first_name" label="First Name" fullWidth required value={customerToEdit.first_name} onChange={handleEditInputChange} margin="normal" />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField name="last_name" label="Last Name" fullWidth required value={customerToEdit.last_name} onChange={handleEditInputChange} margin="normal" />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField name="email" label="Email" type="email" fullWidth required value={customerToEdit.email} onChange={handleEditInputChange} margin="normal" />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField name="phone_number" label="Phone Number" fullWidth value={customerToEdit.phone_number} onChange={handleEditInputChange} margin="normal" />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Status</InputLabel>
                 <Select name="status" value={customerToEdit.status} onChange={handleEditInputChange} label="Status">
@@ -31,7 +31,7 @@ export default function CustomerEditModal({ open, onClose, onSubmit, customerToE
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Preferred Notification</InputLabel>
                 <Select name="preferred_notification" value={customerToEdit.preferred_notification} onChange={handleEditInputChange} label="Preferred Notification">

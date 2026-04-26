@@ -7,6 +7,7 @@ from ..models import SupportTicket, ConnectionRequest, Status, Employee
 from ..serializers import SupportTicketSerializer, ConnectionRequestSerializer
 from ..utils.permissions import IsCustomer, IsSupport, IsManager, IsAdmin
 from ..utils.mixins import StandardResponseMixin
+from ..services.assignment import auto_assign_technician, auto_assign_connection_request
 
 class SupportTicketViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -26,6 +27,18 @@ class SupportTicketViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return self.queryset.filter(customer=user.customer_profile)
         return self.queryset
 
+    @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsManager])
+    def auto_assign_all(self, request):
+        """
+        Auto-assign all unassigned tickets.
+        """
+        unassigned_tickets = SupportTicket.objects.filter(assigned_to__isnull=True)
+        count = 0
+        for ticket in unassigned_tickets:
+            if auto_assign_technician(ticket):
+                count += 1
+        return Response({'status': f'Successfully assigned {count} tickets'})
+
 class ConnectionRequestViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     queryset = ConnectionRequest.objects.all().order_by('-created_at')
     serializer_class = ConnectionRequestSerializer
@@ -35,14 +48,26 @@ class ConnectionRequestViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsAdminUser()]
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdmin])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin | IsManager])
     def assign_technician(self, request, pk=None):
         conn_req = self.get_object()
         employee_id = request.data.get('employee_id')
         try:
             employee = Employee.objects.get(id=employee_id)
             conn_req.assign_technician(employee)
-            # Logic to update status...
             return Response({'status': 'Technician assigned'})
         except Employee.DoesNotExist:
             return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsManager])
+    def auto_assign_all(self, request):
+        """
+        Auto-assign all unassigned connection requests.
+        """
+        # ConnectionRequests are unassigned if they have no entries in ConnectionRequestAssignment
+        unassigned_requests = ConnectionRequest.objects.filter(connectionrequestassignment__isnull=True)
+        count = 0
+        for conn_req in unassigned_requests:
+            if auto_assign_connection_request(conn_req):
+                count += 1
+        return Response({'status': f'Successfully assigned {count} connection requests'})

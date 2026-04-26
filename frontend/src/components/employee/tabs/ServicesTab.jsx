@@ -219,7 +219,7 @@ const ServicesTab = () => {
     } catch (err) {
       setLoading(false);
       enqueueSnackbar(
-        `Failed to ${dialogMode === "create" ? "create" : "update"} service: ₴{
+        `Failed to ${dialogMode === "create" ? "create" : "update"} service: ${
           err.response?.data?.error || err.message
         }`,
         { variant: "error" }
@@ -249,7 +249,7 @@ const ServicesTab = () => {
     } catch (err) {
       setLoading(false);
       enqueueSnackbar(
-        `Failed to delete service: ₴{err.response?.data?.error || err.message}`,
+        `Failed to delete service: ${err.response?.data?.error || err.message}`,
         { variant: "error" }
       );
     }
@@ -510,7 +510,7 @@ const ServicesTab = () => {
           {serviceStats ? (
             <Box sx={{ mt: 2 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Card>
                     <CardContent>
                       <Typography color="textSecondary" gutterBottom>
@@ -522,7 +522,7 @@ const ServicesTab = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Card>
                     <CardContent>
                       <Typography color="textSecondary" gutterBottom>
@@ -534,7 +534,7 @@ const ServicesTab = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Card>
                     <CardContent>
                       <Typography color="textSecondary" gutterBottom>
@@ -548,7 +548,7 @@ const ServicesTab = () => {
                 </Grid>
 
                 {/* Charts */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Card>
                     <CardHeader title="Monthly Revenue by Service" />
                     <CardContent>
@@ -580,7 +580,7 @@ const ServicesTab = () => {
                   </Card>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Card>
                     <CardHeader title="Service Usage in Contracts" />
                     <CardContent>

@@ -132,10 +132,11 @@ export function useEmployees(globalSearch) {
     try {
       setDeleteLoading(true);
       const token = localStorage.getItem("token");
-      await api.delete(`/employees/${employeeToDelete.id}/`, {
+      const res = await api.delete(`/employees/${employeeToDelete.id}/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      enqueueSnackbar("Employee deleted successfully", { variant: "success" });
+      const message = res.data?.message || "Employee deleted successfully";
+      enqueueSnackbar(message, { variant: "success" });
       setDeleteDialogOpen(false);
       fetchEmployees();
     } catch (err) {

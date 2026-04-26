@@ -138,73 +138,22 @@ const ContractsTab = () => {
     }
   };
 
-  // Terminate contract with improved error handling
+  // Terminate contract using the new specialized endpoint
   const handleTerminateContract = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const contractId = selectedContractId;
 
-      // First check if the contract is active
-      const isActive = await checkContractStatus(contractId);
-
-      if (isActive === false) {
-        // Contract is already inactive, just refresh and close dialog
-        enqueueSnackbar("Contract is already inactive", { variant: "info" });
-        handleCloseTerminateDialog();
-        fetchContracts();
-        return;
-      }
-
-      try {
-        // Try to terminate with PATCH first
-        await api.patch(
-          `/contracts/${contractId}/`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      } catch (patchError) {
-        console.error("Error with PATCH request:", patchError);
-
-        // If PATCH failed, try PUT as fallback
-        try {
-          await api.put(
-            `/contracts/${contractId}/`,
-            {},
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-        } catch (putError) {
-          console.error("Error with PUT request:", putError);
-
-          // Even if both methods fail, check if contract was actually terminated
-          const currentStatus = await checkContractStatus(contractId);
-
-          if (currentStatus === false) {
-            // Contract is now inactive despite errors, so operation succeeded
-            enqueueSnackbar(
-              "Contract terminated successfully (with server warning)",
-              { variant: "success" }
-            );
-          } else if (currentStatus === true) {
-            // Contract is still active, operation truly failed
-            throw new Error("Failed to terminate contract");
-          } else {
-            // Couldn't determine status, assume it might have worked
-            enqueueSnackbar(
-              "Contract status unknown - please refresh the page",
-              { variant: "warning" }
-            );
-          }
+      await api.post(
+        `/contracts/${contractId}/terminate/`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      }
+      );
 
       // Show success message
       enqueueSnackbar("Contract terminated successfully", {
@@ -214,7 +163,7 @@ const ContractsTab = () => {
       // Close the dialog
       handleCloseTerminateDialog();
 
-      // Always refresh contracts data
+      // Refresh contracts data
       await fetchContracts();
 
       // If detail dialog is open with the terminated contract, update it
@@ -224,12 +173,9 @@ const ContractsTab = () => {
     } catch (error) {
       console.error("Error terminating contract:", error);
       enqueueSnackbar(
-        "Failed to terminate contract. Please refresh the page to see current status.",
+        "Failed to terminate contract: " + (error.response?.data?.error || error.message),
         { variant: "error" }
       );
-
-      // Refresh data anyway since backend might have succeeded despite the error
-      await fetchContracts();
     } finally {
       setLoading(false);
     }

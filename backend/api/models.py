@@ -256,6 +256,20 @@ class Tariff(models.Model):
     def get_services_list(self):
         return ", ".join(service.name for service in self.services.all())
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        if not is_new:
+            old_instance = Tariff.objects.get(pk=self.pk)
+            if old_instance.is_active and not self.is_active:
+                # Tariff deactivated - terminate contracts
+                from django.utils.timezone import now
+                # Use deferred import or filter related set
+                self.contract_set.filter(status='active').update(
+                    status='terminated', 
+                    end_date=now()
+                )
+        super().save(*args, **kwargs)
+
 class TariffService(models.Model):
     tariff = models.ForeignKey(Tariff, on_delete=models.CASCADE)
     service = models.ForeignKey(Service, on_delete=models.CASCADE)
@@ -372,16 +386,18 @@ class Contract(models.Model):
             raise ValueError("End date must be later than start date")
     
     def save(self, *args, **kwargs):
-        if self.connection_request and not hasattr(self, 'address'):
-            self.address = self.connection_request.address
+        conn_req = getattr(self, 'connection_request', None)
+        if conn_req and not hasattr(self, 'address'):
+            self.address = conn_req.address
         super().save(*args, **kwargs)
     
     def terminate(self):
         """Terminate the contract by setting the end date to today."""
         today = now()
-        if self.end_date is None or self.end_date > today:
+        if self.status != 'terminated':
             self.end_date = today
-            Contract.objects.filter(id=self.id).update(end_date=today)
+            self.status = 'terminated'
+            Contract.objects.filter(id=self.id).update(end_date=today, status='terminated')
             self.refresh_from_db()
             return True
         return False

@@ -71,6 +71,14 @@ class ManagerDashboardView(StandardResponseMixin, APIView):
                 'ticket_resolution_rate': data['ticket_resolution_rate'],
                 'total_services': data['total_services'],
                 'active_services': data['active_services'],
+                'total_equipment': data['total_equipment'],
+                'low_stock_items': data['low_stock_items'],
+                'most_expensive': {
+                    'name': data['most_expensive'].name,
+                    'price': float(data['most_expensive'].price)
+                } if data['most_expensive'] else None,
+                'category_breakdown': data['category_breakdown'],
+                'equipment_statistics': data['equipment_statistics'],
             },
             'error': None
         })

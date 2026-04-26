@@ -101,3 +101,55 @@ class CSVService:
                 errors.append(f"Row {row_num}: {str(e)}")
         
         return created_count, errors
+
+    @staticmethod
+    def export_tariffs(tariffs):
+        buffer = io.StringIO()
+        buffer.write('\ufeff') # BOM for Excel
+        writer = csv.writer(buffer)
+        writer.writerow(['id', 'name', 'price', 'speed_mbps', 'traffic_limit_gb', 'is_active', 'description', 'services'])
+        
+        for t in tariffs:
+            services_str = ", ".join([s.name for s in t.services.all()])
+            writer.writerow([
+                t.id, t.name, t.price, t.speed_mbps,
+                t.traffic_limit_gb, t.is_active, t.description,
+                services_str
+            ])
+        return buffer.getvalue()
+
+    @staticmethod
+    def import_tariffs(csv_file):
+        decoded_file = csv_file.read().decode('utf-8')
+        csv_data = csv.DictReader(io.StringIO(decoded_file))
+        created_count = 0
+        errors = []
+        
+        from api.models import Tariff, Service
+        
+        for row_num, row in enumerate(csv_data, start=2):
+            try:
+                with transaction.atomic():
+                    tariff, created = Tariff.objects.update_or_create(
+                        name=row['name'],
+                        defaults={
+                            'price': row['price'],
+                            'speed_mbps': row.get('speed_mbps', 100),
+                            'traffic_limit_gb': row.get('traffic_limit_gb', 1000),
+                            'is_active': row.get('is_active', 'True').lower() == 'true',
+                            'description': row.get('description', '')
+                        }
+                    )
+                    
+                    # Handle services if provided
+                    services_field = row.get('services', '')
+                    if services_field:
+                        service_names = [s.strip() for s in services_field.split(',')]
+                        services = Service.objects.filter(name__in=service_names)
+                        tariff.services.set(services)
+                    
+                    created_count += 1
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        return created_count, errors

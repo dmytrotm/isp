@@ -271,7 +271,7 @@ const EquipmentTab = () => {
       enqueueSnackbar(
         `Failed to ${
           dialogMode === "create" ? "create" : "update"
-        } equipment: ₴{err.response?.data?.error || err.message}`,
+        } equipment: ${err.response?.data?.error || err.message}`,
         { variant: "error" }
       );
     }
@@ -299,7 +299,7 @@ const EquipmentTab = () => {
     } catch (err) {
       setLoading(false);
       enqueueSnackbar(
-        `Failed to delete equipment: ₴{
+        `Failed to delete equipment: ${
           err.response?.data?.error || err.message
         }`,
         { variant: "error" }
@@ -425,7 +425,7 @@ const EquipmentTab = () => {
                   <TableCell>{item.id}</TableCell>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.description || "N/A"}</TableCell>
-                  <TableCell>₴{parseFloat(item.price).toFixed(2)}</TableCell>
+                  <TableCell>₴{parseFloat(item.price || 0).toFixed(2)}</TableCell>
                   <TableCell>
                     <Chip
                       label={item.stock_quantity}
@@ -502,7 +502,7 @@ const EquipmentTab = () => {
         <DialogContent>
           <Box sx={{ mt: 2, overflowX: "auto" }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Equipment Name"
                   name="name"
@@ -514,7 +514,7 @@ const EquipmentTab = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Price"
                   name="price"
@@ -528,7 +528,7 @@ const EquipmentTab = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Stock Quantity"
                   name="stock_quantity"
@@ -542,7 +542,7 @@ const EquipmentTab = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth margin="normal">
                   <InputLabel>Category</InputLabel>
                   <Select
@@ -560,7 +560,7 @@ const EquipmentTab = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth margin="normal">
                   <InputLabel>State</InputLabel>
                   <Select
@@ -577,7 +577,7 @@ const EquipmentTab = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   label="Description"
                   name="description"
@@ -653,7 +653,7 @@ const EquipmentTab = () => {
           {equipmentStats ? (
             <Box sx={{ mt: 2 }}>
               <Grid container spacing={3}>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Card>
                     <CardContent>
                       <Typography color="textSecondary" gutterBottom>
@@ -665,7 +665,7 @@ const EquipmentTab = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Card>
                     <CardContent>
                       <Typography color="textSecondary" gutterBottom>
@@ -677,7 +677,7 @@ const EquipmentTab = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <Card>
                     <CardContent>
                       <Typography color="textSecondary" gutterBottom>
@@ -697,7 +697,7 @@ const EquipmentTab = () => {
                 </Grid>
 
                 {/* Category Breakdown Chart */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Card>
                     <CardHeader title="Equipment by Category" />
                     <CardContent>
@@ -732,7 +732,7 @@ const EquipmentTab = () => {
                 </Grid>
 
                 {/* Stock Level Chart */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Card>
                     <CardHeader title="Stock Levels (Top 10 Items)" />
                     <CardContent>
@@ -773,7 +773,7 @@ const EquipmentTab = () => {
                 </Grid>
 
                 {/* Equipment Details Table with horizontal scrolling */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="h6" gutterBottom>
                     Low Stock Equipment
                   </Typography>

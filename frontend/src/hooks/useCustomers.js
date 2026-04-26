@@ -134,10 +134,11 @@ export function useCustomers(globalSearch) {
     try {
       setDeleteLoading(true);
       const token = localStorage.getItem("token");
-      await api.delete(`/customers/${customerToDelete.id}/`, {
+      const res = await api.delete(`/customers/${customerToDelete.id}/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      enqueueSnackbar("Customer deleted successfully", { variant: "success" });
+      const message = res.data?.message || "Customer deleted successfully";
+      enqueueSnackbar(message, { variant: "success" });
       setDeleteDialogOpen(false);
       fetchCustomers();
     } catch (err) {

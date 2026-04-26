@@ -25,25 +25,25 @@ export default function RegisterForm({ hookState }) {
   return (
     <Box component="form" noValidate onSubmit={handleSubmit} sx={{ width: "100%" }}>
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField required fullWidth id="user.first_name" label="First Name" name="user.first_name" autoComplete="given-name" value={formData.user.first_name} onChange={handleChange} onBlur={handleBlur} variant="outlined" error={!!getFieldError("user.first_name")} helperText={getFieldError("user.first_name")} />
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField required fullWidth id="user.last_name" label="Last Name" name="user.last_name" autoComplete="family-name" value={formData.user.last_name} onChange={handleChange} onBlur={handleBlur} variant="outlined" error={!!getFieldError("user.last_name")} helperText={getFieldError("user.last_name")} />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField required fullWidth id="user.email" label="Email Address" name="user.email" autoComplete="email" type="email" value={formData.user.email} onChange={handleChange} onBlur={handleBlur} variant="outlined" error={!!getFieldError("user.email")} helperText={getFieldError("user.email")} />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField fullWidth id="phone_number" label="Phone Number" name="phone_number" type="tel" placeholder="+380xxxxxxxxx" value={formData.phone_number} onChange={handleChange} onBlur={handleBlur} variant="outlined" error={!!getFieldError("phone_number")} helperText={getFieldError("phone_number") || "Include country code (e.g., +380)"} />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField select fullWidth id="preferred_notification" label="Preferred Notification" name="preferred_notification" value={formData.preferred_notification} onChange={handleChange} variant="outlined" error={!!getFieldError("preferred_notification")} helperText={getFieldError("preferred_notification")}>
             <MenuItem value="email">Email</MenuItem>
             <MenuItem value="sms">SMS</MenuItem>
           </TextField>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField required fullWidth id="user.password" label="Password" name="user.password" type={showPassword ? "text" : "password"} value={formData.user.password} onChange={handleChange} onBlur={handleBlur} variant="outlined" error={!!getFieldError("user.password")} helperText={getFieldError("user.password") || "Minimum 8 characters with mixed case, numbers and symbols"}
             InputProps={{
               endAdornment: (
@@ -64,7 +64,7 @@ export default function RegisterForm({ hookState }) {
             </Box>
           )}
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField required fullWidth id="user.confirm_password" label="Confirm Password" name="user.confirm_password" type={showConfirmPassword ? "text" : "password"} value={formData.user.confirm_password} onChange={handleChange} onBlur={handleBlur} variant="outlined" error={!!getFieldError("user.confirm_password")} helperText={getFieldError("user.confirm_password")}
             InputProps={{
               endAdornment: (

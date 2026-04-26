@@ -129,40 +129,36 @@ const InternetUsageTab = () => {
       {/* Date Range Selector */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={3} alignItems="center">
-            <Grid size={{ xs: 12, md: 4 }}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <Grid container spacing={3} alignItems="center">
+              <Grid size={{ xs: 12, md: 4 }}>
                 <DatePicker
                   label="Start Date"
                   value={startDate}
                   onChange={(newValue) => setStartDate(newValue)}
-                  slots={{ textField: TextField }}
                   slotProps={{ textField: { fullWidth: true } }}
                 />
-              </LocalizationProvider>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <DatePicker
                   label="End Date"
                   value={endDate}
                   onChange={(newValue) => setEndDate(newValue)}
-                  slots={{ textField: TextField }}
                   slotProps={{ textField: { fullWidth: true } }}
                 />
-              </LocalizationProvider>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleApplyDateFilter}
+                  fullWidth
+                >
+                  Apply Filter
+                </Button>
+              </Grid>
             </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleApplyDateFilter}
-                fullWidth
-              >
-                Apply Filter
-              </Button>
-            </Grid>
-          </Grid>
+          </LocalizationProvider>
         </CardContent>
       </Card>
 

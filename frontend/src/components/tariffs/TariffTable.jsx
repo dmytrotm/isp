@@ -28,7 +28,7 @@ export default function TariffTable({ tariffs, loading, viewOnly, onOpenDialog, 
                 <TableCell>{tariff.id}</TableCell>
                 <TableCell>{tariff.name}</TableCell>
                 <TableCell>{tariff.description || "N/A"}</TableCell>
-                <TableCell>₴{parseFloat(tariff.price).toFixed(2)}</TableCell>
+                <TableCell>₴{parseFloat(tariff.price || 0).toFixed(2)}</TableCell>
                 <TableCell><Chip label={tariff.is_active ? "Active" : "Inactive"} color={tariff.is_active ? "success" : "default"} /></TableCell>
                 <TableCell>{tariff.services?.length || 0} service(s)</TableCell>
                 <TableCell>

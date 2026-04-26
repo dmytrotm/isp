@@ -4,7 +4,8 @@ from django.utils import timezone
 from datetime import timedelta
 from ..models import (
     Customer, BalanceTransaction, SupportTicket, TariffRecommendation, 
-    Employee, Contract, Invoice, ConnectionRequest, Tariff, Service, NetworkUsage
+    Employee, Contract, Invoice, ConnectionRequest, Tariff, Service, NetworkUsage,
+    Equipment
 )
 
 def get_dashboard_stats():
@@ -131,6 +132,20 @@ def get_dashboard_stats():
     for s in service_stats:
         s['monthly_revenue'] = float(s['monthly_revenue']) if s['monthly_revenue'] else 0.0
 
+    # --- Equipment Statistics ---
+    equipment_stats_list = (
+        Equipment.objects.annotate(
+            active_assignments=Count('contractequipment', filter=Q(contractequipment__is_active=True))
+        )
+        .values('id', 'name', 'price', 'stock_quantity', 'category__name', 'state', 'active_assignments')
+    )
+    
+    category_breakdown = {}
+    for item in equipment_stats_list:
+        cat_name = item['category__name'] or "Uncategorized"
+        category_breakdown[cat_name] = category_breakdown.get(cat_name, 0) + 1
+        item['category_name'] = cat_name 
+
     return {
         'total_customers': total_customers,
         'total_employees': total_employees,
@@ -149,6 +164,11 @@ def get_dashboard_stats():
         'ticket_resolution_rate': float(ticket_resolution_rate),
         'total_services': Service.objects.count(),
         'active_services': Service.objects.filter(is_active=True).count(),
+        'total_equipment': Equipment.objects.count(),
+        'low_stock_items': Equipment.objects.filter(stock_quantity__lte=5).count(),
+        'most_expensive': Equipment.objects.order_by('-price').first(),
+        'category_breakdown': category_breakdown,
+        'equipment_statistics': list(equipment_stats_list),
         'open_tickets': ticket_stats['open'],
         'in_progress_tickets': ticket_stats['in_progress'],
         'resolved_tickets': ticket_stats['resolved'],

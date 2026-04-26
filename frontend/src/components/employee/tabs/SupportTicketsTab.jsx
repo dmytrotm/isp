@@ -184,6 +184,21 @@ const SupportTicketsTab = () => {
       });
   };
 
+  const handleAutoAssignAll = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await api.post("/support-tickets/auto_assign_all/", {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      enqueueSnackbar(response.data.status || "Auto-assignment complete", { variant: "success" });
+      fetchSupportTickets();
+    } catch (err) {
+      enqueueSnackbar("Failed to auto-assign: " + (err.response?.data?.error || err.message), { variant: "error" });
+      setLoading(false);
+    }
+  };
+
   if (loading && supportTickets.length === 0) {
     return (
       <Box
@@ -214,6 +229,18 @@ const SupportTicketsTab = () => {
 
   return (
     <>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
+        {(isAdmin || isManager) && (
+          <Button 
+            variant="contained" 
+            color="secondary" 
+            onClick={handleAutoAssignAll}
+            disabled={loading}
+          >
+            Auto-Assign Unassigned
+          </Button>
+        )}
+      </Box>
       <TableContainer component={Paper}>
         <Table aria-label="support tickets table">
           <TableHead>

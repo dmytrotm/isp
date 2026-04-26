@@ -27,6 +27,8 @@ import {
 import api from "../../../services/api";
 import { useSnackbar } from "notistack";
 
+import { useAuth } from "../../../context/AuthContext";
+
 const ConnectionRequestsTab = () => {
   const [connectionRequests, setConnectionRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ const ConnectionRequestsTab = () => {
   const [equipmentOptions, setEquipmentOptions] = useState([]);
 
   const { enqueueSnackbar } = useSnackbar();
+  const { isAdmin, isManager } = useAuth();
 
   // Fetch connection requests data
   const fetchConnectionRequests = async () => {
@@ -301,6 +304,21 @@ const ConnectionRequestsTab = () => {
     });
   };
 
+  const handleAutoAssignAll = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await api.post("/connection-requests/auto_assign_all/", {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      enqueueSnackbar(response.data.status || "Auto-assignment complete", { variant: "success" });
+      fetchConnectionRequests();
+    } catch (err) {
+      enqueueSnackbar("Failed to auto-assign: " + (err.response?.data?.error || err.message), { variant: "error" });
+      setLoading(false);
+    }
+  };
+
   if (loading && connectionRequests.length === 0) {
     return (
       <Box
@@ -331,6 +349,18 @@ const ConnectionRequestsTab = () => {
 
   return (
     <>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
+        {(isAdmin || isManager) && (
+          <Button 
+            variant="contained" 
+            color="secondary" 
+            onClick={handleAutoAssignAll}
+            disabled={loading}
+          >
+            Auto-Assign Unassigned
+          </Button>
+        )}
+      </Box>
       <TableContainer component={Paper}>
         <Table aria-label="connection requests table">
           <TableHead>

@@ -3,6 +3,7 @@ import { Chip } from '@mui/material';
 
 const STATUS_CONFIG = {
   active:      { label: 'Active',      color: 'success' },
+  inactive:    { label: 'Inactive',    color: 'default' },
   blocked:     { label: 'Blocked',     color: 'error'   },
   frozen:      { label: 'Frozen',      color: 'info'    },
   archived:    { label: 'Archived',    color: 'default' },

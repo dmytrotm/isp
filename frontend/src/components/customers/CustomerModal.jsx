@@ -59,7 +59,7 @@ export default function CustomerModal({ open, onClose, loading, detailData }) {
                         <ListItem key={address.id}>
                           <ListItemText
                             primary={`${address.street}, ${address.city}`}
-                            secondary={`Building: ₴{address.building}, Apt: ₴{address.apartment}, Region: ₴{address.region_name}`}
+                            secondary={`Building: ${address.building}, Apt: ${address.apartment}, Region: ${address.region_name}`}
                           />
                         </ListItem>
                       ))}
@@ -115,7 +115,7 @@ export default function CustomerModal({ open, onClose, loading, detailData }) {
                         <ListItem key={invoice.id}>
                           <ListItemText
                             primary={`Invoice #${invoice.id} - ₴${invoice.amount}`}
-                            secondary={`Due: ₴{new Date(invoice.due_date).toLocaleDateString()} - Status: ₴{invoice.status}`}
+                            secondary={`Due: ${new Date(invoice.due_date).toLocaleDateString()} - Status: ${invoice.status}`}
                           />
                         </ListItem>
                       ))}
@@ -135,7 +135,7 @@ export default function CustomerModal({ open, onClose, loading, detailData }) {
                         <ListItem key={ticket.id}>
                           <ListItemText
                             primary={ticket.subject}
-                            secondary={`Created: ₴{new Date(ticket.created_at).toLocaleDateString()} - Status: ₴{ticket.status}`}
+                            secondary={`Created: ${new Date(ticket.created_at).toLocaleDateString()} - Status: ${ticket.status}`}
                           />
                         </ListItem>
                       ))}

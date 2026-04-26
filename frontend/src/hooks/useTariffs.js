@@ -75,7 +75,7 @@ export function useTariffs(viewOnly = false) {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await api.get("/dashboard/manager/", {
+      const response = await api.get("/tariffs/export_csv/", {
         headers: { Authorization: `Bearer ${token}` },
         responseType: "blob",
       });
@@ -101,7 +101,7 @@ export function useTariffs(viewOnly = false) {
       const token = localStorage.getItem("token");
       const form = new FormData();
       form.append("csv_file", csvFile);
-      const response = await api.post("/dashboard/manager/", form, {
+      const response = await api.post("/tariffs/import_csv/", form, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
       });
       setImportSuccess(`Successfully imported ${response.data.count} tariffs`);
