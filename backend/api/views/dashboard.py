@@ -60,6 +60,17 @@ class ManagerDashboardView(StandardResponseMixin, APIView):
                 'total_tariffs': data['total_tariffs'],
                 'active_tariffs': data['active_tariffs'],
                 'most_popular': data['most_popular'],
+                'usage': data['usage'],
+                'total_revenue': data['total_revenue'],
+                'total_invoiced': data['total_invoiced'],
+                'pending_amount': data['pending_amount'],
+                'overdue_amount': data['overdue_amount'],
+                'payment_collection_rate': data['payment_collection_rate'],
+                'total_support_tickets': data['total_support_tickets'],
+                'resolved_support_tickets': data['resolved_support_tickets'],
+                'ticket_resolution_rate': data['ticket_resolution_rate'],
+                'total_services': data['total_services'],
+                'active_services': data['active_services'],
             },
             'error': None
         })

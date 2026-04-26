@@ -70,7 +70,7 @@ export function useEmployees(globalSearch) {
   const handleExportCSV = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await api.get("/dashboard/manager/", {
+      const res = await api.get("/employees/export_csv/", {
         headers: { Authorization: `Bearer ${token}` },
         responseType: "blob",
       });
@@ -95,7 +95,7 @@ export function useEmployees(globalSearch) {
       const formData = new FormData();
       formData.append("csv_file", importFile);
       
-      const res = await api.post("/dashboard/manager/", formData, {
+      const res = await api.post("/employees/import_csv/", formData, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
       });
       enqueueSnackbar(`Successfully imported ${res.data.count} employees`, { variant: "success" });

@@ -65,47 +65,78 @@ class Command(BaseCommand):
         
         # Get the database cursor
         cursor = connection.cursor()
+        engine = connection.vendor
         
-        # For SQL Server specifically, disable constraint checking temporarily
+        # List of all api tables to clear
+        tables = [
+            'api_notification',
+            'api_tariffrecommendation',
+            'api_clientscore',
+            'api_balancetransaction',
+            'api_networkusage',
+            'api_payment',
+            'api_invoice',
+            'api_supportticket',
+            'api_contractequipment',
+            'api_contract',
+            'api_connectionrequestassignment',
+            'api_connectionrequest',
+            'api_address',
+            'api_customer',
+            'api_employee',
+            'api_tariffservice',
+            'api_tariff',
+            'api_service',
+            'api_equipment',
+            'api_equipmentcategory',
+            'api_region',
+            'api_paymentmethod',
+            'api_status',
+            'api_statuscontext',
+            'api_employeerole',
+        ]
+
         try:
-            cursor.execute("EXEC sp_MSforeachtable @command1='DISABLE TRIGGER ALL ON ?'")
-            cursor.execute("EXEC sp_MSforeachtable @command1='ALTER TABLE ? NOCHECK CONSTRAINT ALL'")
+            if engine == 'postgresql':
+                # PostgreSQL approach: Truncate with CASCADE handles constraints
+                self.stdout.write(self.style.NOTICE("Detected PostgreSQL. Using TRUNCATE ... CASCADE."))
+                tables_str = ", ".join(tables)
+                cursor.execute(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE")
+                self.stdout.write(self.style.SUCCESS(f"Cleared all tables: {tables_str}"))
             
-            # Truncate all tables in reverse dependency order
-            tables = [
-                'api_networkusage',
-                'api_payment',
-                'api_invoice',
-                'api_supportticket',
-                'api_contractequipment',
-                'api_contract',
-                'api_connectionrequestassignment',
-                'api_connectionrequest',
-                'api_address',
-                'api_customer',
-                'api_employee',
-                'api_tariffservice',
-                'api_tariff',
-                'api_service',
-                'api_equipment',
-                # Skip Django system tables like auth_user, etc.
-            ]
+            elif engine == 'microsoft' or engine == 'mssql':
+                # SQL Server approach
+                self.stdout.write(self.style.NOTICE("Detected SQL Server. Using sp_MSforeachtable."))
+                cursor.execute("EXEC sp_MSforeachtable @command1='DISABLE TRIGGER ALL ON ?'")
+                cursor.execute("EXEC sp_MSforeachtable @command1='ALTER TABLE ? NOCHECK CONSTRAINT ALL'")
+                
+                for table in tables:
+                    try:
+                        cursor.execute(f"IF OBJECT_ID('{table}', 'U') IS NOT NULL TRUNCATE TABLE {table}")
+                        self.stdout.write(self.style.SUCCESS(f"Cleared {table}"))
+                    except Exception as e:
+                        self.stdout.write(self.style.WARNING(f"Error clearing {table}: {e}"))
+                
+                cursor.execute("EXEC sp_MSforeachtable @command1='ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL'")
+                cursor.execute("EXEC sp_MSforeachtable @command1='ENABLE TRIGGER ALL ON ?'")
             
-            for table in tables:
-                try:
-                    cursor.execute(f"IF OBJECT_ID('{table}', 'U') IS NOT NULL TRUNCATE TABLE {table}")
-                    self.stdout.write(self.style.SUCCESS(f"Cleared {table}"))
-                except Exception as e:
-                    self.stdout.write(self.style.WARNING(f"Error clearing {table}: {e}"))
-            
-            # Re-enable constraints
-            cursor.execute("EXEC sp_MSforeachtable @command1='ALTER TABLE ? WITH CHECK CHECK CONSTRAINT ALL'")
-            cursor.execute("EXEC sp_MSforeachtable @command1='ENABLE TRIGGER ALL ON ?'")
+            else:
+                # Generic approach for other databases (SQLite, etc.)
+                self.stdout.write(self.style.NOTICE(f"Detected {engine}. Using individual TRUNCATE/DELETE."))
+                for table in tables:
+                    try:
+                        # SQLite doesn't support TRUNCATE, use DELETE
+                        sql = f"DELETE FROM {table}" if engine == 'sqlite' else f"TRUNCATE TABLE {table}"
+                        cursor.execute(sql)
+                        self.stdout.write(self.style.SUCCESS(f"Cleared {table}"))
+                    except Exception as e:
+                        self.stdout.write(self.style.WARNING(f"Error clearing {table}: {e}"))
+
+            self.stdout.write(self.style.SUCCESS('Data cleared successfully.'))
             
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error during database clearing: {e}"))
-        
-        self.stdout.write(self.style.SUCCESS('Data cleared successfully.'))
+            raise e # Raise to stop execution if clearing fails
 
     def create_initial_data(self):
         """Create basic data required for relationships"""

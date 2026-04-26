@@ -633,7 +633,7 @@ const ServicesTab = () => {
                             <TableCell>{service.name}</TableCell>
                             <TableCell>{service.active_contracts}</TableCell>
                             <TableCell>
-                              ${service.monthly_revenue.toFixed(2)}
+                              ₴{(service.monthly_revenue || 0).toFixed(2)}
                             </TableCell>
                             <TableCell>
                               <Chip

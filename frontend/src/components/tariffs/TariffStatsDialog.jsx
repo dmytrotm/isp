@@ -85,7 +85,7 @@ export default function TariffStatsDialog({ open, onClose, stats }) {
                             <TableCell>{tariff.name}</TableCell>
                             <TableCell>₴{parseFloat(tariff.price).toFixed(2)}</TableCell>
                             <TableCell>{tariff.active_contracts}</TableCell>
-                            <TableCell>₴{tariff.monthly_revenue.toFixed(2)}</TableCell>
+                            <TableCell>₴{(tariff.monthly_revenue || 0).toFixed(2)}</TableCell>
                             <TableCell><Chip label={tariff.is_active ? "Active" : "Inactive"} color={tariff.is_active ? "success" : "default"} size="small" /></TableCell>
                           </TableRow>
                         )) : null}

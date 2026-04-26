@@ -26,6 +26,16 @@ class TariffViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return TariffDetailSerializer
         return TariffSerializer
 
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"error": "Cannot delete this tariff because it is currently assigned to customers or connection requests. Please deactivate it instead."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
     @action(detail=False, methods=['get'])
     def by_service(self, request):
         service_id = request.query_params.get('service_id')
@@ -48,6 +58,16 @@ class ServiceViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['name']
     ordering = ['name']
+
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"error": "Cannot delete this service because it is linked to existing contracts or tariffs. Please deactivate it instead."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class PaymentViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     queryset = Payment.objects.select_related("customer", "method").order_by("-payment_date")

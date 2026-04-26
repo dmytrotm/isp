@@ -136,7 +136,8 @@ const InternetUsageTab = () => {
                   label="Start Date"
                   value={startDate}
                   onChange={(newValue) => setStartDate(newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  slots={{ textField: TextField }}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -146,7 +147,8 @@ const InternetUsageTab = () => {
                   label="End Date"
                   value={endDate}
                   onChange={(newValue) => setEndDate(newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
+                  slots={{ textField: TextField }}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -164,7 +166,7 @@ const InternetUsageTab = () => {
         </CardContent>
       </Card>
 
-      {usageData && (
+      {usageData && usageData.summary && (
         <>
           {/* Summary Statistics */}
           <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -175,7 +177,7 @@ const InternetUsageTab = () => {
                     Total Data Transfer
                   </Typography>
                   <Typography variant="h3">
-                    {usageData.summary.total_usage_gb.toFixed(2)} GB
+                    {(usageData.summary.total_usage_gb || 0).toFixed(2)} GB
                   </Typography>
                 </CardContent>
               </Card>
@@ -187,7 +189,7 @@ const InternetUsageTab = () => {
                     Active Customers
                   </Typography>
                   <Typography variant="h3">
-                    {usageData.summary.unique_customers}
+                    {usageData.summary.unique_customers || 0}
                   </Typography>
                 </CardContent>
               </Card>
@@ -199,7 +201,7 @@ const InternetUsageTab = () => {
                     Average Usage Per Customer
                   </Typography>
                   <Typography variant="h3">
-                    {usageData.summary.average_per_customer_gb.toFixed(2)} GB
+                    {(usageData.summary.average_per_customer_gb || 0).toFixed(2)} GB
                   </Typography>
                 </CardContent>
               </Card>
@@ -215,7 +217,7 @@ const InternetUsageTab = () => {
                   <Box height={400}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
-                        data={usageData.daily_usage}
+                        data={usageData.daily_usage || []}
                         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -263,7 +265,7 @@ const InternetUsageTab = () => {
                   <Box height={350}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
-                        data={usageData.monthly_usage}
+                        data={usageData.monthly_usage || []}
                         margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" />
@@ -299,7 +301,7 @@ const InternetUsageTab = () => {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={usageData.tariff_usage}
+                          data={usageData.tariff_usage || []}
                           cx="50%"
                           cy="50%"
                           labelLine={false}
@@ -308,10 +310,10 @@ const InternetUsageTab = () => {
                           dataKey="total_gb"
                           nameKey="tariff_name"
                           label={({ name, percent }) =>
-                            `${name}: ₴{(percent * 100).toFixed(0)}%`
+                            `${name}: ${(percent * 100).toFixed(0)}%`
                           }
                         >
-                          {usageData.tariff_usage.map((entry, index) => (
+                          {(usageData.tariff_usage || []).map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
                               fill={COLORS[index % COLORS.length]}
@@ -319,7 +321,7 @@ const InternetUsageTab = () => {
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value) => `${value.toFixed(2)} GB`}
+                          formatter={(value) => `${(value || 0).toFixed(2)} GB`}
                         />
                         <Legend />
                       </PieChart>
@@ -346,20 +348,20 @@ const InternetUsageTab = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {usageData.customer_usage.map((row) => (
+                        {(usageData.customer_usage || []).map((row) => (
                           <TableRow key={row.customer_id}>
                             <TableCell component="th" scope="row">
                               {row.customer_id}
                             </TableCell>
                             <TableCell>{row.customer_name}</TableCell>
                             <TableCell align="right">
-                              {row.download_gb.toFixed(2)}
+                              {(row.download_gb || 0).toFixed(2)}
                             </TableCell>
                             <TableCell align="right">
-                              {row.upload_gb.toFixed(2)}
+                              {(row.upload_gb || 0).toFixed(2)}
                             </TableCell>
                             <TableCell align="right">
-                              {row.total_gb.toFixed(2)}
+                              {(row.total_gb || 0).toFixed(2)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -371,6 +373,13 @@ const InternetUsageTab = () => {
             </Grid>
           </Grid>
         </>
+      )}
+      {!usageData && !loading && (
+        <Box mt={4} textAlign="center">
+          <Typography variant="h6" color="textSecondary">
+            No usage data available for the selected period.
+          </Typography>
+        </Box>
       )}
     </Container>
   );

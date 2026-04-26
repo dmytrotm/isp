@@ -29,7 +29,7 @@ export default function AdminReportsTab({ financialSummary, performanceMetrics }
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" gutterBottom>Payment Collection Rate</Typography>
-                <Typography variant="h5">{financialSummary.payment_collection_rate.toFixed(2)}%</Typography>
+                <Typography variant="h5">{(financialSummary.payment_collection_rate || 0).toFixed(2)}%</Typography>
               </Grid>
             </Grid>
           </CardContent>
@@ -43,8 +43,8 @@ export default function AdminReportsTab({ financialSummary, performanceMetrics }
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <Typography variant="subtitle2" gutterBottom>Ticket Resolution Rate</Typography>
-                <Typography variant="h5">{performanceMetrics.ticket_resolution_rate.toFixed(2)}%</Typography>
-                <Typography variant="body2" color="textSecondary">{performanceMetrics.resolved_support_tickets} out of {performanceMetrics.total_support_tickets}</Typography>
+                <Typography variant="h5">{(performanceMetrics.ticket_resolution_rate || 0).toFixed(2)}%</Typography>
+                <Typography variant="body2" color="textSecondary">{performanceMetrics.resolved_support_tickets || 0} out of {performanceMetrics.total_support_tickets || 0}</Typography>
               </Grid>
             </Grid>
           </CardContent>

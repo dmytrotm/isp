@@ -105,6 +105,32 @@ def get_dashboard_stats():
         .values('name', 'active_contracts')
     )
 
+    # --- Additional Financial Metrics ---
+    total_revenue = Payment.objects.aggregate(total=Sum('amount'))['total'] or 0
+    total_invoiced = Invoice.objects.aggregate(total=Sum('amount'))['total'] or 0
+    pending_amount = Invoice.objects.filter(status='pending').aggregate(total=Sum('amount'))['total'] or 0
+    overdue_amount = Invoice.objects.filter(status='overdue').aggregate(total=Sum('amount'))['total'] or 0
+    
+    total_invoices_count = Invoice.objects.count()
+    payment_collection_rate = (paid_invoices / total_invoices_count * 100) if total_invoices_count > 0 else 0
+    
+    # --- Performance Metrics ---
+    total_support_tickets = SupportTicket.objects.count()
+    resolved_support_tickets = ticket_stats['resolved']
+    ticket_resolution_rate = (resolved_support_tickets / total_support_tickets * 100) if total_support_tickets > 0 else 0
+    
+    # --- Service Distribution ---
+    service_stats = (
+        Service.objects.annotate(
+            active_contracts=Count('contract', filter=Q(contract__status='active')),
+            monthly_revenue=Sum('contract__tariff__price', filter=Q(contract__status='active'))
+        )
+        .values('id', 'name', 'active_contracts', 'monthly_revenue', 'is_active')
+    )
+    
+    for s in service_stats:
+        s['monthly_revenue'] = float(s['monthly_revenue']) if s['monthly_revenue'] else 0.0
+
     return {
         'total_customers': total_customers,
         'total_employees': total_employees,
@@ -113,6 +139,16 @@ def get_dashboard_stats():
         'paid_invoices': paid_invoices,
         'pending_invoices': pending_invoices,
         'overdue_invoices': overdue_invoices,
+        'total_revenue': float(total_revenue),
+        'total_invoiced': float(total_invoiced),
+        'pending_amount': float(pending_amount),
+        'overdue_amount': float(overdue_amount),
+        'payment_collection_rate': float(payment_collection_rate),
+        'total_support_tickets': total_support_tickets,
+        'resolved_support_tickets': resolved_support_tickets,
+        'ticket_resolution_rate': float(ticket_resolution_rate),
+        'total_services': Service.objects.count(),
+        'active_services': Service.objects.filter(is_active=True).count(),
         'open_tickets': ticket_stats['open'],
         'in_progress_tickets': ticket_stats['in_progress'],
         'resolved_tickets': ticket_stats['resolved'],

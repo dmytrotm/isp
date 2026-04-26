@@ -71,6 +71,31 @@ class EmployeeViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             'recent_tickets': SupportTicketSerializer(recent_tickets, many=True).data
         })
 
+    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManager | IsAdmin])
+    def export_csv(self, request):
+        from ..services.csv_service import CSVService
+        from django.http import HttpResponse
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        csv_data = CSVService.export_employees(queryset)
+        
+        response = HttpResponse(csv_data, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="employees.csv"'
+        return response
+
+    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManager | IsAdmin])
+    def import_csv(self, request):
+        from ..services.csv_service import CSVService
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        count, errors = CSVService.import_employees(csv_file)
+        return Response({
+            'count': count,
+            'errors': errors
+        }, status=status.HTTP_201_CREATED if count > 0 else status.HTTP_400_BAD_REQUEST)
+
 class EmployeeRoleViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     queryset = EmployeeRole.objects.all().order_by('name')
     serializer_class = EmployeeRoleSerializer
