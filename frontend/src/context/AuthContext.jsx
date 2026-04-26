@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }) => {
     isManager: currentUser?.employee?.role === "manager" || false,
     isAdmin: currentUser?.employee?.role === "admin" || false,
     isSupport: currentUser?.employee?.role === "support" || false,
+    isTechnician: currentUser?.employee?.role === "technician" || false,
   };
 
   return (

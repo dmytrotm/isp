@@ -56,6 +56,7 @@ class Command(BaseCommand):
         self.create_support_tickets(options['tickets'])
         self.create_payments_and_invoices()
         self.create_network_usage()
+        self.run_engines()
         
         self.stdout.write(self.style.SUCCESS('Successfully populated the database with sample data!'))
     
@@ -837,3 +838,27 @@ class Command(BaseCommand):
                 current_date += timedelta(days=1)
         
         self.stdout.write(self.style.SUCCESS(f'Created {usage_records} network usage records.'))
+    def run_engines(self):
+        """Run scoring and recommendation engines for sample data"""
+        self.stdout.write(self.style.NOTICE('Running scoring and recommendation engines...'))
+        from api.services.scoring import calculate_customer_score
+        from api.services.recommendations import generate_tariff_recommendation
+        from api.models import Customer
+        
+        customers = Customer.objects.all()[:50]
+        score_count = 0
+        rec_count = 0
+        
+        for customer in customers:
+            # Scoring
+            score_obj = calculate_customer_score(customer)
+            score_obj.save()
+            score_count += 1
+            
+            # Recommendation
+            rec_obj = generate_tariff_recommendation(customer)
+            if rec_obj:
+                rec_obj.save()
+                rec_count += 1
+                
+        self.stdout.write(self.style.SUCCESS(f'Generated {score_count} scores and {rec_count} recommendations.'))

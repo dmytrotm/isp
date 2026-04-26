@@ -26,6 +26,7 @@ import {
 import api from "../../../services/api";
 import { useSnackbar } from "notistack";
 import { useAuth } from "../../../context/AuthContext";
+import { StatusBadge } from "../../shared/StatusBadge";
 
 const SupportTicketsTab = () => {
   const [supportTickets, setSupportTickets] = useState([]);
@@ -167,7 +168,7 @@ const SupportTicketsTab = () => {
     }
 
     api
-      .put(`/support-tickets/${detailData.id}/`, updateData, {
+      .patch(`/support-tickets/${detailData.id}/`, updateData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -251,6 +252,7 @@ const SupportTicketsTab = () => {
               <TableCell>Created</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Assigned To</TableCell>
+              <TableCell>SLA Status</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -264,21 +266,24 @@ const SupportTicketsTab = () => {
                   {new Date(ticket.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    label={ticket.status}
-                    color={
-                      ticket.status === "resolved"
-                        ? "success"
-                        : ticket.status === "open"
-                        ? "warning"
-                        : "default"
-                    }
-                  />
+                  <StatusBadge status={ticket.status_name?.toLowerCase()} />
                 </TableCell>
                 <TableCell>
                   {ticket.assigned_to_details
                     ? ticket.assigned_to_details.user_details?.full_name
                     : "Unassigned"}
+                </TableCell>
+                <TableCell>
+                  {ticket.sla_deadline ? (
+                    <Chip
+                      size="small"
+                      label={ticket.is_sla_breached ? "Breached" : "On Track"}
+                      color={ticket.is_sla_breached ? "error" : "success"}
+                      title={`Deadline: ${new Date(ticket.sla_deadline).toLocaleString()}`}
+                    />
+                  ) : (
+                    "N/A"
+                  )}
                 </TableCell>
                 <TableCell>
                   <Button
@@ -315,7 +320,7 @@ const SupportTicketsTab = () => {
         <DialogContent dividers>
           {detailData && (
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Ticket Information
                 </Typography>
@@ -358,7 +363,7 @@ const SupportTicketsTab = () => {
                   </TableBody>
                 </Table>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Customer Information
                 </Typography>
@@ -399,7 +404,7 @@ const SupportTicketsTab = () => {
                   </TableBody>
                 </Table>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   Description
                 </Typography>
@@ -410,7 +415,7 @@ const SupportTicketsTab = () => {
                 </Paper>
               </Grid>
               {detailData.comments && detailData.comments.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     Comments
                   </Typography>

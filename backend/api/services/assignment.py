@@ -51,12 +51,12 @@ def auto_assign_technician(ticket):
         
     ticket.save(update_fields=['assigned_to', 'status'])
     
-    # Send notification
+    # Send notification to customer
     try:
         send_notification(
-            customer=staff.user.customer_profile if hasattr(staff.user, 'customer_profile') else None,
+            customer=ticket.customer,
             notification_type='ticket_assigned',
-            message=f'You have been assigned to ticket #{ticket.id}: {ticket.subject}'
+            message=f'An employee has been assigned to your ticket #{ticket.id}: {ticket.subject}'
         )
     except Exception:
         pass
@@ -105,12 +105,12 @@ def auto_assign_connection_request(conn_req):
         except Exception:
             pass
             
-        # Send notification
+        # Send notification to customer
         try:
             send_notification(
-                customer=technician.user.customer_profile if hasattr(technician.user, 'customer_profile') else None,
+                customer=conn_req.customer,
                 notification_type='request_assigned',
-                message=f'You have been assigned to connection request #{conn_req.id}'
+                message=f'A technician has been assigned to your connection request #{conn_req.id}'
             )
         except Exception:
             pass

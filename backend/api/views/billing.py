@@ -9,7 +9,7 @@ from ..serializers import (
     TariffSerializer, ServiceSerializer, PaymentSerializer, InvoiceSerializer, 
     PaymentMethodSerializer, TariffDetailSerializer
 )
-from ..utils.permissions import IsManager, IsAdmin, IsCustomer, ReadOnlyOrAdmin
+from ..utils.permissions import IsManager, IsAdmin, IsCustomer, ReadOnlyOrAdmin, IsManagerOrAdmin, IsStaff
 from ..services.pdf_service import generate_invoice_pdf, generate_receipt_pdf
 from ..utils.mixins import StandardResponseMixin
 
@@ -54,7 +54,7 @@ class TariffViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManager | IsAdmin])
+    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManagerOrAdmin])
     def export_csv(self, request):
         from ..services.csv_service import CSVService
         from django.http import HttpResponse
@@ -66,7 +66,7 @@ class TariffViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="tariffs.csv"'
         return response
 
-    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManager | IsAdmin])
+    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManagerOrAdmin])
     def import_csv(self, request):
         from ..services.csv_service import CSVService
         csv_file = request.FILES.get('csv_file')
@@ -110,7 +110,7 @@ class PaymentViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return self.queryset.filter(customer=user.customer_profile)
         return self.queryset
 
-    @action(detail=True, methods=['get'], permission_classes=[IsCustomer | IsManager])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def receipt(self, request, pk=None):
         payment = self.get_object()
         buffer = generate_receipt_pdf(payment)
@@ -128,7 +128,7 @@ class InvoiceViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             return self.queryset.filter(contract__customer=user.customer_profile)
         return self.queryset
 
-    @action(detail=True, methods=['get'], permission_classes=[IsCustomer | IsManager])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def pdf(self, request, pk=None):
         invoice = self.get_object()
         buffer = generate_invoice_pdf(invoice)

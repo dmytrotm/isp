@@ -24,6 +24,7 @@ import ConnectionRequest from "./components/customer/ConnectionRequest";
 import ManagerDashboard from "./components/employee/ManagerDashboard";
 import SupportDashboard from "./components/employee/SupportDashboard";
 import AdminDashboard from "./components/employee/AdminDashboard";
+import TechnicianDashboard from "./components/employee/TechnicianDashboard";
 import ManagerAnalyticsDashboard from "./pages/ManagerDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +36,7 @@ const DashboardRouter = () => {
     isManager,
     isSupport,
     isAdmin,
+    isTechnician,
   } = useAuth();
 
   if (loading) return null; // or <Loader /> if you have one
@@ -44,6 +46,7 @@ const DashboardRouter = () => {
   if (isCustomer) return <CustomerDashboard />;
   if (isManager) return <ManagerDashboard />;
   if (isSupport) return <SupportDashboard />;
+  if (isTechnician) return <TechnicianDashboard />;
   if (isAdmin) return <AdminDashboard />;
 
   return <NotFound />;

@@ -14,7 +14,7 @@ from ..serializers import (
     SupportTicketSerializer, NetworkUsageSerializer, CustomerDetailSerializer, 
     BalanceTransactionSerializer, ClientScoreSerializer, NotificationSerializer
 )
-from ..utils.permissions import IsCustomer, IsManager, IsSupport, IsAdmin
+from ..utils.permissions import IsCustomer, IsManager, IsSupport, IsAdmin, IsManagerOrAdmin
 from ..utils.pagination import StandardResultsSetPagination
 from ..utils.mixins import StandardResponseMixin
 
@@ -67,7 +67,7 @@ class CustomerViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             default_status = Status.objects.filter(status='New', context__context='Customer').first()
             serializer.save(status=default_status)
     
-    @action(detail=True, methods=['get'], permission_classes=[IsCustomer | IsManager | IsSupport | IsAdmin])
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def dashboard(self, request, pk=None):      
         customer = self.get_object()
         
@@ -226,11 +226,11 @@ class CustomerViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         return Response(serializer.data)
 
     # Management actions
-    @action(detail=True, methods=['GET'], url_path='details', permission_classes=[IsManager | IsAdmin])
+    @action(detail=True, methods=['GET'], url_path='details', permission_classes=[IsManagerOrAdmin])
     def customer_details(self, request, pk=None):
         return self.retrieve(request, pk)
 
-    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManager | IsAdmin])
+    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManagerOrAdmin])
     def export_csv(self, request):
         from ..services.csv_service import CSVService
         from django.http import HttpResponse
@@ -242,7 +242,7 @@ class CustomerViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="customers.csv"'
         return response
 
-    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManager | IsAdmin])
+    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManagerOrAdmin])
     def import_csv(self, request):
         from ..services.csv_service import CSVService
         csv_file = request.FILES.get('csv_file')

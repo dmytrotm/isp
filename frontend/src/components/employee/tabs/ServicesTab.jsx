@@ -37,6 +37,7 @@ import {
 } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import api from "../../../services/api";
+import { StatusBadge } from "../../shared/StatusBadge";
 import {
   PieChart,
   Pie,
@@ -353,10 +354,7 @@ const ServicesTab = () => {
                 <TableCell>{service.name}</TableCell>
                 <TableCell>{service.description || "N/A"}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={service.is_active ? "Active" : "Inactive"}
-                    color={service.is_active ? "success" : "default"}
-                  />
+                  <StatusBadge status={service.is_active ? "active" : "inactive"} />
                 </TableCell>
                 <TableCell>
                   <IconButton
@@ -420,7 +418,7 @@ const ServicesTab = () => {
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12 }} sm={6}>
                 <TextField
                   label="Service Name"
                   name="name"
@@ -432,7 +430,7 @@ const ServicesTab = () => {
                   required
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   label="Description"
                   name="description"
@@ -445,7 +443,7 @@ const ServicesTab = () => {
                   disabled={dialogMode === "view"}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -613,7 +611,7 @@ const ServicesTab = () => {
                 </Grid>
 
                 {/* Service Details Table */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="h6" gutterBottom>
                     Service Details
                   </Typography>
@@ -636,15 +634,7 @@ const ServicesTab = () => {
                               ₴{(service.monthly_revenue || 0).toFixed(2)}
                             </TableCell>
                             <TableCell>
-                              <Chip
-                                label={
-                                  service.is_active ? "Active" : "Inactive"
-                                }
-                                color={
-                                  service.is_active ? "success" : "default"
-                                }
-                                size="small"
-                              />
+                              <StatusBadge status={service.is_active ? "active" : "inactive"} />
                             </TableCell>
                           </TableRow>
                         ))}

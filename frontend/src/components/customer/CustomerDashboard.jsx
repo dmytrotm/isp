@@ -620,6 +620,79 @@ const CustomerDashboard = () => {
             </Card>
           </Grid>
 
+          {/* Health Score Card */}
+          <Grid item xs={12} md={4}>
+            <Card elevation={2} sx={{ height: '100%' }}>
+              <CardHeader
+                avatar={
+                  <Avatar sx={{ bgcolor: dashboardData?.current_score >= 80 ? "success.main" : dashboardData?.current_score >= 50 ? "warning.main" : "error.main" }}>
+                    <SpeedIcon />
+                  </Avatar>
+                }
+                title="Customer Health Score"
+              />
+              <CardContent sx={{ textAlign: 'center' }}>
+                <Typography variant="h2" color={dashboardData?.current_score >= 80 ? "success.main" : dashboardData?.current_score >= 50 ? "warning.main" : "error.main"}>
+                  {dashboardData?.current_score}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Based on payment history and support interactions
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Recommendations Card */}
+          <Grid item xs={12} md={4}>
+            <Card elevation={2} sx={{ height: '100%' }}>
+              <CardHeader
+                avatar={
+                  <Avatar sx={{ bgcolor: "info.main" }}>
+                    <NotificationsIcon />
+                  </Avatar>
+                }
+                title="Smart Recommendations"
+              />
+              <CardContent>
+                {dashboardData?.tariff_recommendations?.filter(r => !r.is_reviewed).length > 0 ? (
+                  <Box>
+                    {dashboardData.tariff_recommendations.filter(r => !r.is_reviewed).map((rec) => (
+                      <Box key={rec.id} sx={{ mb: 2 }}>
+                        <Alert severity="info" sx={{ mb: 1 }}>
+                          <AlertTitle>Tariff Suggestion</AlertTitle>
+                          We recommend switching to <strong>{rec.recommended_tariff_details.name}</strong>.
+                        </Alert>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          Reason: {rec.reason === 'overusing' ? 'High network usage' : 'Optimizing costs'}
+                        </Typography>
+                        <Button 
+                          variant="contained" 
+                          size="small" 
+                          fullWidth
+                          onClick={async () => {
+                            try {
+                              await api.post(`/recommendations/${rec.id}/apply/`);
+                              alert("Connection request for tariff upgrade created!");
+                              window.location.reload(); // Quick refresh
+                            } catch (err) {
+                              alert("Failed to apply recommendation: " + (err.response?.data?.detail || err.message));
+                            }
+                          }}
+                        >
+                          Switch to {rec.recommended_tariff_details.name}
+                        </Button>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Your current tariff is optimal for your usage patterns.
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
           {/* Alerts Card */}
           <Grid item xs={12} md={4}>
             <Card elevation={2}>

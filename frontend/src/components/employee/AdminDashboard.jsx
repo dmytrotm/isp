@@ -12,6 +12,7 @@ import ContractsTab from "./tabs/ContractsTab";
 import ConnectionRequestsTab from "./tabs/ConnectionRequestsTab";
 import InternetUsageTab from "./tabs/InternetUsageTab";
 import SupportTicketsTab from "./tabs/SupportTicketsTab";
+import TariffRecommendationsTab from "./tabs/TariffRecommendationsTab";
 import { Container, Box, Typography, Tabs, Tab } from "@mui/material";
 import { LogOut, Home } from "lucide-react";
 import { Dashboard as DashboardIcon, AccountCircle as CustomerIcon, People as EmployeeIcon, Receipt as InvoiceIcon, SupportAgent as SupportIcon, Warning as AlertIcon, TrendingUp as TrendingUpIcon, Description } from "@mui/icons-material";
@@ -80,6 +81,7 @@ const AdminDashboard = () => {
           <Tab label="Tariffs" icon={<TariffIcon />} iconPosition="start" />
           <Tab label="Services" icon={<ServiceIcon />} iconPosition="start" />
           <Tab label="Equipment" icon={<EquipmentIcon />} iconPosition="start" />
+          <Tab label="Recommendations" icon={<TrendingUpIcon />} iconPosition="start" />
         </Tabs>
       </Box>
       {hookState.tabValue === 0 && <AdminOverviewTab dashboardStats={hookState.dashboardStats} setTabValue={hookState.setTabValue} paymentStatusData={paymentStatusData} getColorForSegment={getColorForSegment} />}
@@ -94,6 +96,7 @@ const AdminDashboard = () => {
       {hookState.tabValue === 9 && <TariffsTab />}
       {hookState.tabValue === 10 && <ServicesTab />}
       {hookState.tabValue === 11 && <EquipmentTab />}
+      {hookState.tabValue === 12 && <TariffRecommendationsTab />}
     </Container>
   );
 };

@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from ..models import SupportTicket, ConnectionRequest, Status, Employee
 from ..serializers import SupportTicketSerializer, ConnectionRequestSerializer
-from ..utils.permissions import IsCustomer, IsSupport, IsManager, IsAdmin
+from ..utils.permissions import IsCustomer, IsSupport, IsManager, IsAdmin, IsManagerOrAdmin, IsTechnician, IsStaff
 from ..utils.mixins import StandardResponseMixin
 from ..services.assignment import auto_assign_technician, auto_assign_connection_request
 
@@ -23,11 +23,28 @@ class SupportTicketViewSet(StandardResponseMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # Check for SLA breaches on uncompleted tickets
+        active_tickets = self.queryset.filter(
+            is_sla_breached=False, 
+            status__status__in=['Open', 'In Progress', 'New']
+        )
+        for ticket in active_tickets:
+            ticket.check_sla_breach()
+
         if hasattr(user, 'customer_profile'):
             return self.queryset.filter(customer=user.customer_profile)
+        
+        if hasattr(user, 'employee_profile'):
+            employee = user.employee_profile
+            # Managers and Admins can see all tickets
+            if employee.role.name.lower() in ['manager', 'admin']:
+                return self.queryset
+            # Other employees (Support/Technician) only see their assigned tickets
+            return self.queryset.filter(assigned_to=employee)
+            
         return self.queryset
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsManager])
+    @action(detail=False, methods=['post'], permission_classes=[IsManagerOrAdmin])
     def auto_assign_all(self, request):
         """
         Auto-assign all unassigned tickets.
@@ -42,13 +59,28 @@ class SupportTicketViewSet(StandardResponseMixin, viewsets.ModelViewSet):
 class ConnectionRequestViewSet(StandardResponseMixin, viewsets.ModelViewSet):
     queryset = ConnectionRequest.objects.all().order_by('-created_at')
     serializer_class = ConnectionRequestSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if hasattr(user, 'customer_profile'):
+            return self.queryset.filter(customer=user.customer_profile)
+        
+        if hasattr(user, 'employee_profile'):
+            employee = user.employee_profile
+            # Managers and Admins can see all connection requests
+            if employee.role.name.lower() in ['manager', 'admin']:
+                return self.queryset
+            # Support/Technicians only see requests assigned to them
+            return self.queryset.filter(employees=employee)
+            
+        return self.queryset
     
     def get_permissions(self):
         if self.action == 'create':
             return [IsAuthenticated()]
-        return [IsAdminUser()]
+        return [IsStaff()]
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdmin | IsManager])
+    @action(detail=True, methods=['post'], permission_classes=[IsManagerOrAdmin])
     def assign_technician(self, request, pk=None):
         conn_req = self.get_object()
         employee_id = request.data.get('employee_id')
@@ -59,7 +91,7 @@ class ConnectionRequestViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         except Employee.DoesNotExist:
             return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsManager])
+    @action(detail=False, methods=['post'], permission_classes=[IsManagerOrAdmin])
     def auto_assign_all(self, request):
         """
         Auto-assign all unassigned connection requests.

@@ -26,7 +26,7 @@ export const AuthService = {
 
   getCurrentUser: async () => {
     const response = await api.get("auth/user/");
-    const userData = response.data;
+    const userData = response.data.data || response.data;
     localStorage.setItem("user", JSON.stringify(userData));
     return userData;
   },
@@ -72,6 +72,16 @@ export const AuthService = {
       user.is_employee &&
       user.employee &&
       user.employee.role === "support"
+    );
+  },
+
+  isTechnician: () => {
+    const user = AuthService.getUser();
+    return (
+      user &&
+      user.is_employee &&
+      user.employee &&
+      user.employee.role === "technician"
     );
   },
 };

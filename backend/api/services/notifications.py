@@ -9,6 +9,10 @@ def send_notification(customer, notification_type, message):
     """
     Creates a Notification record and optionally sends an email.
     """
+    if not customer:
+        logger.warning(f"Attempted to send notification '{notification_type}' with no customer.")
+        return None
+
     # Create DB record
     notif = Notification.objects.create(
         customer=customer,

@@ -1,222 +1,219 @@
-# ISP Management System
+# 🌐 ISP Management System (Billing & CRM)
 
-## Overview
-The ISP Management System is a comprehensive enterprise resource planning (ERP) solution tailored for Internet Service Providers. It streamlines core business operations including customer onboarding, automated technical support ticket assignment, dynamic billing, and advanced manager analytics. The system leverages automated scoring and recommendation engines to optimize service delivery and customer retention.
+Система управління інтернет-провайдером — це комплексне full-stack рішення для автоматизації бізнес-процесів ISP, що охоплює білінг, технічну підтримку, управління інфраструктурою та інтелектуальний аналіз поведінки клієнтів.
 
-## Core Feature Implementation
+## 1. Огляд системи
+Система забезпечує повний життєвий цикл взаємодії з абонентом:
+- **Основна мета:** Автоматизація операційної діяльності провайдера від моменту реєстрації нового клієнта до щомісячного виставлення рахунків та моніторингу якості послуг.
+- **Сценарії користувача:**
+    1. **Клієнт:** Реєстрація → Вибір тарифу → Заявка на підключення → Моніторинг використання → Оплата рахунків → Створення тікетів підтримки.
+    2. **Менеджер:** Аналітика доходів → Управління тарифами → Розгляд рекомендацій щодо апгрейду клієнтів → Контроль дебіторської заборгованості.
+    3. **Технік/Підтримка:** Виконання заявок на підключення → Вирішення інцидентів (SLA) → Облік обладнання.
+- **Межі системи:**
+    - **Внутрішні:** Auth, Billing Engine, CRM, Inventory, Analytics.
+    - **Зовнішні:** Twilio (SMS), SMTP (Email).
 
-### 🛠 Technician Auto-Assignment
-- **Mechanism**: Django Signals (`post_save`) on the `SupportTicket` model.
-- **Logic**: When a "technical" ticket is created, the system queries for available `Employee` records with the 'Technician' role.
-- **Optimization**: It selects the technician with the lowest number of active (New/Open/In-Progress) tickets to ensure balanced workload distribution.
+## 1.1 Функціональні модулі та алгоритми
 
-### 📊 Manager Analytics Dashboard
-- **Aggregation**: Complex SQL aggregations using Django's `Sum`, `Count`, and `Avg` functions across multiple models (Invoices, Customers, Tickets, Usage).
-- **Visualization**: Frontend integration with Recharts to display:
-  - Revenue trends (6-month history)
-  - Ticket resolution efficiency
-  - Tariff popularity and service distribution
-  - Network usage heatmaps and trends.
+### 🛠 Автоматичний розподіл техніків
+- **Механізм:** Використання Django Signals (`post_save`) для моделі `SupportTicket`.
+- **Логіка:** При створенні тікету типу "technical", система шукає доступних співробітників з роллю "Technician".
+- **Оптимізація:** Тікет призначається техніку з найменшою кількістю активних задач (New/Open/In-Progress) для рівномірного навантаження.
 
-### 🎯 Client Scoring Engine
-- **Algorithm**: A daily Celery task evaluates every customer against a 100-point scale:
-  - **Contract Fidelity (30 pts)**: Points based on the longevity of the customer relationship.
-  - **Payment Reliability (30 pts)**: Penalties for overdue invoices in the last 12 months.
-  - **Support Burden (20 pts)**: Reward for low support ticket volume in the last 30 days.
-- **Usage**: Helps managers identify "at-risk" customers or candidates for loyalty rewards.
+### 📊 Панель аналітики менеджера
+- **Агрегація:** Використання SQL-агрегацій (`Sum`, `Count`, `Avg`) через Django ORM.
+- **Метрики:**
+  - Динаміка доходів за останні 6 місяців.
+  - Ефективність вирішення тікетів (середній час закриття).
+  - Популярність тарифних планів.
+  - Теплова карта мережевого навантаження.
 
-### 💡 Tariff Recommendation Engine
-- **Analysis**: Evaluates the last 3 months of `NetworkUsage` (daily download/upload totals).
-- **Triggers**:
-  - **Downgrade**: If usage is <40% of the current limit, suggests a more economical plan.
-  - **Upgrade**: If usage is >90% of the limit, suggests a higher-tier plan to prevent service degradation.
-- **Automation**: Recommendations are generated daily and stored for manager approval.
+### 🎯 Двигун скорингу клієнтів (Client Scoring)
+- **Алгоритм:** Щоденна задача Celery оцінює клієнта за 100-бальною шкалою:
+  - **Лояльність (30 балів):** Нараховуються залежно від тривалості контракту (більше року = max).
+  - **Фінансова дисципліна (30 балів):** Штрафні бали за прострочені інвойси за останні 12 місяців.
+  - **Навантаження на підтримку (20 балів):** Бонус за відсутність частих звернень за останні 30 днів.
+- **Мета:** Виявлення клієнтів у зоні ризику відтоку або кандидатів на преміальні програми.
 
-### ⏳ Dynamic SLA Tracking
-- **Monitoring**: Every hour, a Celery task scans all active technical tickets.
-- **Detection**: Compares `sla_deadline` with the current server time.
-- **Notification**: Tickets exceeding deadlines are marked as `is_sla_breached`, triggering visual priority in the dashboard and potential automated escalations.
+### 💡 Система рекомендацій тарифів
+- **Аналіз:** Оцінка `NetworkUsage` за останні 3 місяці (середньодобовий обсяг трафіку).
+- **Тригери:**
+  - **Downgrade:** Якщо споживання <40% ліміту, система пропонує дешевший тариф.
+  - **Upgrade:** Якщо споживання >90% ліміту, пропонується тариф з вищим лімітом для уникнення деградації сервісу.
+- **Процес:** Рекомендації генеруються автоматично та очікують на розгляд менеджером.
 
-### 💳 Billing & Invoicing
-- **Automation**: Monthly invoice generation based on active contract terms and tariff pricing.
-- **Negative Balance Protection**: If a customer's balance remains negative for >3 days, the system automatically suspends active contracts and notifies the user.
-- **PDF Exports**: On-the-fly generation of professional PDF receipts and contracts using `ReportLab`.
+### ⏳ Динамічний моніторинг SLA
+- **Контроль:** Погодинна перевірка всіх активних технічних тікетів.
+- **Виявлення:** Порівняння `sla_deadline` з поточним часом.
+- **Дія:** Тікети з простроченим дедлайном отримують статус `is_sla_breached`, що підсвічує їх у дашборді та ініціює сповіщення.
 
-## Tech Stack
-| Component | Technology | Version |
-|-----------|------------|---------|
-| Backend   | Django / DRF | 5.2 |
-| Frontend  | React      | 19 |
-| Database  | PostgreSQL | 16 |
-| Cache/Broker | Redis   | 7 |
-| Workers   | Celery     | 5.4 |
-| Styling   | Material UI| 7 |
-| Auth      | JWT        | SimpleJWT |
+### 💳 Автоматизація білінгу
+- **Генерація:** Щомісячне створення інвойсів на основі активних контрактів.
+- **Захист від заборгованості:** Якщо баланс залишається негативним >3 днів, система автоматично призупиняє дію контракту.
+- **Експорт:** Генерація PDF-контрактів та квитанцій "на льоту" за допомогою бібліотеки `ReportLab`.
 
-## Features
-- **Technician Auto-Assignment**: Automatically routes technical tickets to the least loaded available technician.
-- **Manager Analytics Dashboard**: High-level business intelligence visualization using Recharts.
-- **Client Scoring Engine**: Automated health scoring based on payment history and support interactions.
-- **Tariff Recommendation Engine**: Smart service upgrade suggestions based on actual network usage.
-- **Dynamic SLA Tracking**: Real-time monitoring of support ticket deadlines with breach alerts.
-- **Billing & Invoicing**: Automated invoice generation, payment tracking, and PDF receipt exports.
+## 2. Технологічний стек
 
-## Architecture
+| Шар | Технологія | Версія | Категорія | Призначення |
+| :--- | :--- | :--- | :--- | :--- |
+| **Frontend** | React | 19.0 | Framework | Побудова SPA інтерфейсу |
+| **Styling** | Material UI (MUI) | 7.0 | UI Library | Дизайн-система та компоненти |
+| **Backend** | Django | 4.2 | Framework | Основна бізнес-логіка та ORM |
+| **API** | Django REST Framework | 3.16 | Toolkit | Побудова RESTful API |
+| **База даних** | PostgreSQL | 16 | RDBMS | Надійне збереження даних |
+| **Кеш / Черга** | Redis | 7.0 | Broker | Брокер повідомлень для Celery |
+| **Фонові задачі**| Celery / Celery Beat| 5.6 / 2.9 | Worker/Scheduler| Асинхронні розрахунки та періодичні задачі |
+| **Авторизація** | JWT (SimpleJWT) | 5.5 | Security | Автентифікація через токени |
+| **Документація** | drf-yasg (Swagger) | 1.21 | API Docs | Автогенерація документації API |
+| **DevOps** | Docker / Compose | - | Infrastructure | Контейнеризація сервісів |
+
+## 3. Архітектура системи
+
+### Загальна схема зв'язків
 ```mermaid
 graph TD
-    Client[React Frontend] -->|REST API + JWT| API[Django REST Framework]
-    API --> DB[(PostgreSQL)]
-    API -->|Tasks| Broker[Redis]
-    Broker --> Worker[Celery Worker]
+    User((Користувач)) -->|HTTPS| Web[React SPA / Vite]
+    Web -->|REST API + JWT| API[Django Server]
+    API -->|ORM| DB[(PostgreSQL)]
+    API -->|Tasks| Redis[Redis Broker]
+    Redis --> Worker[Celery Worker]
     Worker --> DB
-    Worker -->|Schedule| Beat[Celery Beat]
+    Beat[Celery Beat] -->|Schedule| Redis
+    
+    API -->|Email| SMTP[SMTP Server]
+    API -->|SMS| Twilio[Twilio API]
 ```
 
-## Quick Start
+### Взаємодія компонентів та черги задач
+Система використовує подієво-орієнтований підхід для важких операцій:
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 14+
-- Redis 7+
+1.  **Django ↔ Redis ↔ Celery:** 
+    - Django виступає як продюсер задач. Коли потрібно виконати фонову дію (наприклад, перерахувати скоринг), задача поміщається в чергу **Redis**.
+    - **Celery Worker** постійно моніторить чергу та виконує задачі асинхронно, не блокуючи основний потік HTTP-запитів.
+    - **Celery Beat** виконує роль планувальника (cron), запускаючи регулярні перевірки SLA та генерацію інвойсів за розкладом.
+    
+2.  **Frontend ↔ Backend:**
+    - Комунікація відбувається виключно через REST API. 
+    - Для безпеки кожен запит супроводжується заголовком `Authorization: Bearer <JWT>`, який валідується на стороні Django за допомогою `SimpleJWT`.
+    
+3.  **Database Strategy:**
+    - **PostgreSQL** забезпечує цілісність даних через транзакції, що критично для білінгових операцій.
+    - Всі фінансові зміни супроводжуються записом у таблицю `BalanceTransaction` для аудиту.
 
-### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env      # fill in your values
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
+### Шляхи комунікації
+- **Синхронні:** HTTP-запити від фронтенду до бекенду (Django) для отримання/зміни даних.
+- **Асинхронні:** Обробка важких задач (генерація PDF, розрахунок скорингу, перевірка SLA) через Celery.
+- **Шлюз:** Роль Gateway у локальній розробці виконує Docker Compose (порти 8000 та 5173).
 
-### Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## 4. Структура репозиторію
+Проєкт організований як **Монорепозиторій**:
 
-### Celery Workers
-```bash
-# In separate terminals:
-celery -A backend worker -l info
-celery -A backend beat -l info
-```
-
-## Docker Quick Start
-
-### Run everything with one command:
-```bash
-cp backend/.env.example backend/.env
-# Fill in your values in backend/.env
-docker-compose up --build
-```
-
-### Services will be available at:
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- Database: localhost:5432
-- Redis: localhost:6379
-
-### Useful commands:
-```bash
-# Run in background
-docker-compose up -d
-
-# View logs
-docker-compose logs -f backend
-docker-compose logs -f celery_worker
-
-# Run migrations manually
-docker-compose exec backend python manage.py migrate
-
-# Create superuser
-docker-compose exec backend python manage.py createsuperuser
-
-# Stop everything
-docker-compose down
-
-# Stop and remove volumes (clears database)
-docker-compose down -v
-```
-
-## Environment Variables
-| Variable | Description | Example |
-|----------|-------------|---------|
-| SECRET_KEY | Django security key | (generated) |
-| DEBUG | Toggle debug mode | True/False |
-| DB_HOST | Database host | db / localhost |
-| REDIS_URL | Redis connection string | redis://redis:6379/0 |
-| CORS_ALLOWED_ORIGINS | Allowed domains | http://localhost:5173 |
-
-## Automated Tasks
-| Task | Schedule | Description |
-|------|----------|-------------|
-| check_sla_breaches | Hourly | Monitors support tickets for SLA deadline violations. |
-| check_negative_balances | Daily | Identifies customers with negative balances. |
-| check_low_balances | Daily | Proactively notifies customers with low funds. |
-| calculate_all_scores | Daily | Updates customer health scores based on activity. |
-| generate_all_recommendations | Daily | Analyzes usage to suggest better tariff plans. |
-
-## API Overview
-| Method | Endpoint | Auth Required | Description |
-|--------|----------|---------------|-------------|
-| POST | /api/auth/token/ | No | Obtain JWT token pair (Login). |
-| POST | /api/auth/register/ | No | Register new customer. |
-| GET | /api/auth/user/ | Yes | Get current user profile. |
-| GET | /api/customers/ | Yes (Manager) | List all customers (filterable).|
-| GET | /api/customers/dashboard/ | Yes (Owner) | Get personal dashboard data. |
-| GET | /api/contracts/ | Yes | List active contracts. |
-| GET | /api/invoices/ | Yes | List billing invoices. |
-| GET | /api/support-tickets/ | Yes | List/Create support issues. |
-| GET | /api/dashboard/manager/ | Yes (Manager) | Consolidated business analytics.|
-| GET | /api/recommendations/ | Yes (Manager) | Smart tariff upgrade list. |
-| POST | /api/payments/ | Yes (Owner) | Register new payment. |
-| GET | /api/equipment/ | Yes (Manager) | Monitor hardware stock. |
-| GET | /api/network-usage/ | Yes | Personal usage statistics. |
-| PATCH | /api/notifications/ | Yes | Mark notifications as read. |
-| GET | /api/contracts/{id}/pdf/ | Yes | Download contract as PDF. |
-
-## Database Schema
-```mermaid
-erDiagram
-    User ||--o| Customer : profile
-    User ||--o| Employee : profile
-    Customer ||--o{ Contract : signs
-    Contract ||--o{ Invoice : generates
-    Contract ||--o{ NetworkUsage : tracks
-    Customer ||--o{ SupportTicket : opens
-    Employee ||--o{ SupportTicket : assigned_to
-    Tariff ||--o{ Contract : applies_to
-```
-
-## Security
-- **JWT Authentication**: Secure stateless authentication for all API requests.
-- **Rate Limiting**: Protection against brute-force attacks on login (5/m) and registration (3/10m).
-- **Role-Based Access (RBAC)**: Strict separation of Customer, Support, Manager, and Admin capabilities.
-- **Security Headers**: XSS protection, Content-Type sniffing prevention, and DENY X-Frame-Options.
-- **Sensitive Data Protection**: Internal fields like balance tracking are read-only and secured.
-
-## Project Structure
 ```text
 .
-├── backend/                # Django Application
-│   ├── api/                # Core Logic
-│   │   ├── services/       # Business Logic Services
-│   │   ├── tasks/          # Celery Async Tasks
-│   │   ├── views/          # API Endpoints
-│   │   ├── models.py       # DB Schema
-│   │   └── serializers.py  # Data Marshalling
-│   └── backend/            # Project Configuration
-├── frontend/               # React Application
+├── backend/                # Django проект
+│   ├── api/                # Основний додаток (Models, Views, Serializers)
+│   │   ├── services/       # Бізнес-логіка (Scoring, Billing, Recommendations)
+│   │   ├── tasks/          # Асинхронні задачі Celery
+│   │   └── management/     # Кастомні команди (populate_db)
+│   └── backend/            # Конфігурація проекту (settings.py, celery.py)
+├── frontend/               # React проект
 │   ├── src/
-│   │   ├── components/     # UI Components
-│   │   ├── hooks/          # Custom React Hooks
-│   │   ├── pages/          # Page Components
-│   │   └── services/       # API Integration
-├── docker-compose.yml      # Orchestration
-└── README.md               # Documentation
+│   │   ├── components/     # UI компоненти
+│   │   ├── context/        # Управління станом (Auth, Toast)
+│   │   └── services/       # Клієнти для API викликів
+├── docker-compose.yml      # Оркестрація контейнерів
+└── README.md               # Ця документація
 ```
+
+## 5. Аналіз Backend
+
+### API Ендпоінти
+| Метод | Шлях | Авторизація | Призначення |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/token/` | Ні | Логін (отримання JWT) |
+| `POST` | `/api/auth/register/` | Ні | Реєстрація клієнта |
+| `GET` | `/api/customers/` | Менеджер | Список абонентів |
+| `GET` | `/api/contracts/` | Так | Контракти поточного юзера |
+| `POST` | `/api/support-tickets/` | Так | Створення запиту в підтримку |
+| `GET` | `/api/dashboard/manager/`| Менеджер | Зведена бізнес-аналітика |
+| `GET` | `/api/recommendations/` | Менеджер | Пропозиції щодо зміни тарифів |
+
+### Схема бази даних
+```mermaid
+erDiagram
+    USER ||--o| CUSTOMER : profile
+    USER ||--o| EMPLOYEE : profile
+    CUSTOMER ||--o{ ADDRESS : has
+    CUSTOMER ||--o{ CONTRACT : signs
+    CONTRACT ||--o{ INVOICE : generates
+    CONTRACT ||--o{ NETWORK_USAGE : tracks
+    CONTRACT ||--o{ CONTRACT_EQUIPMENT : includes
+    TARIFF ||--o{ CONTRACT : applies
+    EMPLOYEE ||--o{ SUPPORT_TICKET : assigned_to
+    CUSTOMER ||--o{ SUPPORT_TICKET : opens
+```
+
+## 6. Аналіз Frontend
+- **Routing:** Використовується `react-router-dom` v7.
+- **State Management:** React Context API для автентифікації (`AuthContext`) та повідомлень (`ToastContext`).
+- **Компоненти:** Модульна архітектура, де кожна сутність (Employee, Customer) має власні таби та графіки.
+- **API Connection:** Власний сервіс на базі `axios` з автоматичним додаванням `Authorization: Bearer <token>`.
+
+## 7. Потік даних — від початку до кінця
+Приклад: Оплата рахунку
+1. **UI:** Користувач натискає "Pay Now" в кабінеті.
+2. **Frontend:** Виклик `api.post('/payments/', data)`, стан стає `loading`.
+3. **Backend:** Перевірка JWT, валідація суми в `PaymentSerializer`.
+4. **Business Logic:** Виклик `record_transaction`, оновлення балансу `Customer`, створення `BalanceTransaction`.
+5. **Database:** ACID транзакція оновлює баланс та створює запис оплати.
+6. **Response:** Бекенд повертає статус 201.
+7. **UI Update:** Фронтенд оновлює баланс на екрані та показує Success Toast.
+
+## 8. Автентифікація та авторизація
+- **Стратегія:** Stateless JWT. Токени зберігаються в `localStorage`.
+- **Ролі:** 
+    - `Admin`: Повний доступ.
+    - `Manager`: Аналітика, тарифи, управління контрактами.
+    - `Support`: Робота з тікетами.
+    - `Technician`: Виконання заявок на підключення.
+    - `Customer`: Перегляд власних послуг, оплата, підтримка.
+
+## 9. База даних та сховище
+- **PostgreSQL:** Основне сховище. Міграції через `manage.py migrate`.
+- **Redis:** Кешування результатів аналітики та черга задач.
+- **Files:** Контракти та інвойси генеруються як PDF (ReportLab).
+
+## 10. Зовнішні інтеграції
+- **Twilio:** Використовується для SMS-сповіщень про критичний баланс.
+- **SMTP:** Надсилання інвойсів та підтвердження реєстрації.
+- **⚠️ Відкриті питання:** Наразі інтеграція Twilio в коді присутня як сервіс, але потребує налаштування API ключів в `.env`.
+
+## 11. Конфігурація
+| Змінна | Шар | Обов'язкова | Призначення |
+| :--- | :--- | :--- | :--- |
+| `SECRET_KEY` | Backend | Так | Ключ безпеки Django |
+| `DB_PASSWORD` | Infrastructure | Так | Пароль до PostgreSQL |
+| `REDIS_URL` | Backend/Workers | Так | URL брокера повідомлень |
+| `CORS_ALLOWED_ORIGINS`| Backend | Так | Дозвіл для фронтенду |
+
+## 12. Стратегія тестування
+- **Backend:** Тести в `api/tests.py` (APITestCase).
+- **Покриття:** Логіка транзакцій, генерація інвойсів, SLA трекінг, розрахунок скорингу.
+- **Запуск:** `docker-compose exec backend python manage.py test`.
+
+## 13. CI/CD та розгортання
+- **Infrastructure as Code:** Docker Compose визначає всі залежності.
+- **Production:** Рекомендується використання Nginx як Reverse Proxy.
+
+## 14. Локальне налаштування
+1. **Клонування:** `git clone <repo_url> && cd isp`
+2. **Конфігурація:** `cp backend/.env.example backend/.env`
+3. **Запуск:** `docker-compose up --build`
+4. **Ініціалізація:**
+    - Міграції: `docker-compose exec backend python manage.py migrate`
+    - Дані: `docker-compose exec backend python manage.py populate_db`
+    - Адмін: `docker-compose exec backend python manage.py createsuperuser`
+5. **Порти:**
+    - Frontend: `http://localhost:5173`
+    - API: `http://localhost:8000`
+    - Swagger: `http://localhost:8000/swagger/`

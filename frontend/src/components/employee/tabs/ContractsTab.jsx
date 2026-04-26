@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import api from "../../../services/api";
 import { useSnackbar } from "notistack";
+import { StatusBadge } from "../../shared/StatusBadge";
 
 const ContractsTab = () => {
   const [contracts, setContracts] = useState([]);
@@ -241,11 +242,7 @@ const ContractsTab = () => {
                   {new Date(contract.created_at).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    label={contract.is_active ? "Active" : "Inactive"}
-                    color={contract.is_active ? "success" : "default"}
-                    size="small"
-                  />
+                  <StatusBadge status={contract.is_active ? "active" : "terminated"} />
                 </TableCell>
                 <TableCell>
                   <Button
@@ -293,9 +290,9 @@ const ContractsTab = () => {
         <DialogTitle>
           Contract Details
           {detailData?.is_active ? (
-            <Chip label="Active" color="success" size="small" sx={{ ml: 2 }} />
+            <StatusBadge status="active" />
           ) : (
-            <Chip label="Inactive" size="small" sx={{ ml: 2 }} />
+            <StatusBadge status="terminated" />
           )}
         </DialogTitle>
         <DialogContent dividers>

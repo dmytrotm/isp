@@ -85,8 +85,9 @@ class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = ("id", "user", "user_details", "status", "status_name", "phone_number", 
-                  "balance", "balance_negative_since", "preferred_notification", "addresses", "contracts", "all_invoices", "payments", "support_tickets")
-        read_only_fields = ("balance", "balance_negative_since")
+                  "balance", "balance_negative_since", "preferred_notification", "addresses", "contracts", 
+                  "all_invoices", "payments", "support_tickets", "current_score")
+        read_only_fields = ("balance", "balance_negative_since", "current_score")
 
 class CustomerCreateSerializer(serializers.ModelSerializer, ContextAwareSerializerMixin):
     user = UserRegisterSerializer()
@@ -274,45 +275,6 @@ class BalanceTransactionSerializer(serializers.ModelSerializer):
         fields = ("id", "customer", "amount", "balance_after", "transaction_type", "description", "created_at")
         read_only_fields = ("created_at",)
 
-class CustomerDashboardSerializer(serializers.ModelSerializer):
-    user_details = UserSerializer(source="user", read_only=True)
-    status_name = serializers.ReadOnlyField(source="status.status")
-    active_contracts = serializers.SerializerMethodField()
-    total_monthly_payment = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-    pending_invoices = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Customer
-        fields = ("id", "user_details", "status_name", "phone_number", "balance", "balance_negative_since",
-                  "preferred_notification", "active_contracts", "total_monthly_payment", 
-                  "pending_invoices")
-        read_only_fields = ("balance", "balance_negative_since")
-    
-    def get_active_contracts(self, obj):
-        active_contracts = obj.get_active_contracts()
-        return ContractSerializer(active_contracts, many=True, context=self.context).data
-    
-    def get_pending_invoices(self, obj):
-        pending_invoices = Invoice.objects.filter(
-            contract__customer=obj, 
-            status="pending"
-        ).order_by("due_date")
-        return InvoiceSerializer(pending_invoices, many=True, context=self.context).data
-    
-class CustomerDetailSerializer(CustomerSerializer):
-    contracts = ContractSerializer(many=True, read_only=True)
-    payments = PaymentSerializer(many=True, read_only=True)
-    support_tickets = SupportTicketSerializer(many=True, read_only=True)
-    transactions = BalanceTransactionSerializer(many=True, read_only=True)
-
-    class Meta(CustomerSerializer.Meta):
-        fields = CustomerSerializer.Meta.fields + ('transactions',)
-
-class ClientScoreSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ClientScore
-        fields = ("score", "contract_points", "overdue_points", "ticket_points", "calculated_at")
-        read_only_fields = ("calculated_at",)
 
 class TariffRecommendationSerializer(serializers.ModelSerializer):
     customer_name = serializers.ReadOnlyField(source="customer.user.get_full_name")
@@ -337,6 +299,50 @@ class TariffRecommendationSerializer(serializers.ModelSerializer):
         if obj.recommended_tariff:
             return {"id": obj.recommended_tariff.id, "name": obj.recommended_tariff.name, "price": obj.recommended_tariff.price}
         return None
+
+class CustomerDashboardSerializer(serializers.ModelSerializer):
+    user_details = UserSerializer(source="user", read_only=True)
+    status_name = serializers.ReadOnlyField(source="status.status")
+    active_contracts = serializers.SerializerMethodField()
+    total_monthly_payment = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    pending_invoices = serializers.SerializerMethodField()
+    
+    tariff_recommendations = TariffRecommendationSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Customer
+        fields = ("id", "user_details", "status_name", "phone_number", "balance", "balance_negative_since",
+                  "preferred_notification", "active_contracts", "total_monthly_payment", 
+                  "pending_invoices", "current_score", "tariff_recommendations")
+        read_only_fields = ("balance", "balance_negative_since", "current_score")
+    
+    def get_active_contracts(self, obj):
+        active_contracts = obj.get_active_contracts()
+        return ContractSerializer(active_contracts, many=True, context=self.context).data
+    
+    def get_pending_invoices(self, obj):
+        pending_invoices = Invoice.objects.filter(
+            contract__customer=obj, 
+            status="pending"
+        ).order_by("due_date")
+        return InvoiceSerializer(pending_invoices, many=True, context=self.context).data
+    
+class CustomerDetailSerializer(CustomerSerializer):
+    contracts = ContractSerializer(many=True, read_only=True)
+    payments = PaymentSerializer(many=True, read_only=True)
+    support_tickets = SupportTicketSerializer(many=True, read_only=True)
+    transactions = BalanceTransactionSerializer(many=True, read_only=True)
+
+    class Meta(CustomerSerializer.Meta):
+        fields = CustomerSerializer.Meta.fields + ('transactions',)
+
+
+class ClientScoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClientScore
+        fields = ("score", "contract_points", "overdue_points", "ticket_points", "calculated_at")
+        read_only_fields = ("calculated_at",)
+
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:

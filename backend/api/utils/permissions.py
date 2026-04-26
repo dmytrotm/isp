@@ -12,6 +12,10 @@ class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.is_superuser
 
+class IsTechnician(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.groups.filter(name='Technician').exists()
+
 class IsCustomer(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and not request.user.is_staff
@@ -35,3 +39,16 @@ class IsManagerOrAdmin(permissions.BasePermission):
             request.user.is_superuser or 
             request.user.groups.filter(name__in=['Manager', 'Admin']).exists()
         )
+
+class IsStaff(permissions.BasePermission):
+    """
+    Any employee (Manager, Admin, Support, Technician).
+    """
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_staff
+
+class IsCustomerOrStaff(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        return not request.user.is_staff or request.user.is_staff

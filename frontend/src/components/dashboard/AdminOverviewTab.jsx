@@ -58,6 +58,10 @@ export default function AdminOverviewTab({ dashboardStats, setTabValue, paymentS
                 <Typography variant="subtitle2" gutterBottom>Overdue Invoices</Typography>
                 <Typography variant="h5">{dashboardStats.overdue_invoices}</Typography>
               </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="subtitle2" gutterBottom>SLA Breaches</Typography>
+                <Typography variant="h5" color="error">{dashboardStats.overdue_tickets?.length || 0}</Typography>
+              </Grid>
             </Grid>
           </CardContent>
         </Card>

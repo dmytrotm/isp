@@ -229,7 +229,9 @@ class Employee(models.Model):
         elif role_name == 'manager':
             group = Group.objects.get(name='Manager')
             self.user.groups.add(group)
-        # Add other role mappings as needed
+        elif role_name == 'technician':
+            group, _ = Group.objects.get_or_create(name='Technician')
+            self.user.groups.add(group)
         
         super().save(*args, **kwargs)  
 
@@ -555,6 +557,21 @@ class SupportTicket(models.Model):
         except Status.DoesNotExist:
             pass # Keep existing status if 'Open' not found
         self.save()
+
+    def check_sla_breach(self):
+        if not self.is_sla_breached and self.sla_deadline and self.sla_deadline < now():
+            self.is_sla_breached = True
+            self.save()
+            
+            # Create notification
+            from .models import Notification
+            Notification.objects.create(
+                customer=self.customer,
+                notification_type=Notification.SLA_BREACHED,
+                message=f"SLA breached for ticket #{self.id}: {self.subject}"
+            )
+            return True
+        return False
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None

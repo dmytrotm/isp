@@ -28,6 +28,7 @@ import api from "../../../services/api";
 import { useSnackbar } from "notistack";
 
 import { useAuth } from "../../../context/AuthContext";
+import { StatusBadge } from "../../shared/StatusBadge";
 
 const ConnectionRequestsTab = () => {
   const [connectionRequests, setConnectionRequests] = useState([]);
@@ -393,16 +394,7 @@ const ConnectionRequestsTab = () => {
                     : ""}
                 </TableCell>
                 <TableCell>
-                  <Chip
-                    label={request.status_name || "unknown"}
-                    color={
-                      request.status_name === "completed"
-                        ? "success"
-                        : request.status_name === "pending"
-                        ? "warning"
-                        : "default"
-                    }
-                  />
+                  <StatusBadge status={request.status_name?.toLowerCase()} />
                 </TableCell>
                 <TableCell>
                   <Button
@@ -462,7 +454,7 @@ const ConnectionRequestsTab = () => {
         <DialogContent>
           {detailData && (
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   <strong>Request ID:</strong> {detailData.id}
                 </Typography>
@@ -474,7 +466,7 @@ const ConnectionRequestsTab = () => {
                   {new Date(detailData.created_at).toLocaleString()}
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12 }} md={6}>
                 <Typography variant="subtitle1" gutterBottom>
                   <strong>Customer:</strong>{" "}
                   {`${
@@ -492,7 +484,7 @@ const ConnectionRequestsTab = () => {
                   {detailData.customer_details?.phone_number || ""}
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle1" gutterBottom>
                   <strong>Address:</strong>{" "}
                   {`${detailData.address_details?.street || ""}, ${
@@ -500,7 +492,7 @@ const ConnectionRequestsTab = () => {
                   }, ${detailData.address_details?.region_name || ""} `}
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12 }} md={6}>
                 <Typography variant="subtitle1" gutterBottom>
                   <strong>Tariff:</strong>{" "}
                   {detailData.tariff_details?.name || ""}
@@ -511,7 +503,7 @@ const ConnectionRequestsTab = () => {
                 </Typography>
               </Grid>
               {detailData.notes && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle1" gutterBottom>
                     <strong>Notes:</strong>
                   </Typography>
@@ -554,7 +546,7 @@ const ConnectionRequestsTab = () => {
         <DialogTitle>Create Contract</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 label="Start Date"
                 type="date"
@@ -566,7 +558,7 @@ const ConnectionRequestsTab = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12 }} md={6}>
               <TextField
                 label="End Date"
                 type="date"
@@ -578,7 +570,7 @@ const ConnectionRequestsTab = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth>
                 <InputLabel id="equipment-select-label">Equipment</InputLabel>
                 <Select

@@ -8,7 +8,7 @@ from django.db.models import Sum
 
 from ..models import Employee, EmployeeRole, Customer, ConnectionRequest, SupportTicket, Invoice, Payment
 from ..serializers import EmployeeSerializer, EmployeeRoleSerializer, PaymentSerializer, SupportTicketSerializer
-from ..utils.permissions import IsManager, IsAdmin
+from ..utils.permissions import IsManager, IsAdmin, IsManagerOrAdmin
 from ..utils.pagination import StandardResultsSetPagination
 from ..utils.mixins import StandardResponseMixin
 
@@ -71,7 +71,7 @@ class EmployeeViewSet(StandardResponseMixin, viewsets.ModelViewSet):
             'recent_tickets': SupportTicketSerializer(recent_tickets, many=True).data
         })
 
-    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManager | IsAdmin])
+    @action(detail=False, methods=['GET'], url_path='export_csv', permission_classes=[IsManagerOrAdmin])
     def export_csv(self, request):
         from ..services.csv_service import CSVService
         from django.http import HttpResponse
@@ -83,7 +83,7 @@ class EmployeeViewSet(StandardResponseMixin, viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="employees.csv"'
         return response
 
-    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManager | IsAdmin])
+    @action(detail=False, methods=['POST'], url_path='import_csv', permission_classes=[IsManagerOrAdmin])
     def import_csv(self, request):
         from ..services.csv_service import CSVService
         csv_file = request.FILES.get('csv_file')

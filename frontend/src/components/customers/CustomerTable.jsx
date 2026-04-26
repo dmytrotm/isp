@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  TablePagination, IconButton, Tooltip, CircularProgress, Box, Paper
+  TablePagination, IconButton, Tooltip, CircularProgress, Box, Paper, Chip
 } from '@mui/material';
 import { Visibility as ViewIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { StatusBadge } from '../shared/StatusBadge';
@@ -21,6 +21,7 @@ export default function CustomerTable({
               <TableCell>Email</TableCell>
               <TableCell>Phone</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Score</TableCell>
               <TableCell>Balance</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
@@ -28,13 +29,13 @@ export default function CustomerTable({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={8} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : customers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">No customers found</TableCell>
+                <TableCell colSpan={8} align="center">No customers found</TableCell>
               </TableRow>
             ) : (
               customers.map((customer) => (
@@ -45,6 +46,17 @@ export default function CustomerTable({
                   <TableCell>{customer.phone_number}</TableCell>
                   <TableCell>
                     <StatusBadge status={customer.status_name?.toLowerCase()} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      size="small" 
+                      label={customer.current_score} 
+                      color={
+                        customer.current_score >= 80 ? "success" : 
+                        customer.current_score >= 50 ? "warning" : "error"
+                      }
+                      variant="outlined"
+                    />
                   </TableCell>
                   <TableCell>₴{customer.balance}</TableCell>
                   <TableCell>

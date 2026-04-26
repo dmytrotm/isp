@@ -33,18 +33,13 @@ const SupportDashboard = () => {
 
   const fetchSupportProfile = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const supportResponse = await api.get("/auth/user/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const userData = await AuthService.getCurrentUser();
 
-      if (supportResponse.data) {
+      if (userData) {
         setSupportProfile({
-          first_name: supportResponse.data.first_name,
-          last_name: supportResponse.data.last_name,
-          email: supportResponse.data.email,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          email: userData.email,
         });
       }
       setLoading(false);
